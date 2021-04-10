@@ -57,8 +57,17 @@ def make_parser():
     stmt = pp.Forward()
     stmt_list = pp.Forward()
     class_init = pp.Forward()
+    assign = pp.Forward()
+
+
 
     call = ident + LPAR + pp.Optional(expr + pp.ZeroOrMore(COMMA + expr)) + RPAR
+
+    assign = ident + ASSIGN.suppress() + expr
+    var_inner = assign | ident
+    vars_ = type_ + var_inner + pp.ZeroOrMore(COMMA + var_inner)
+
+    simple_stmt = assign | call
 
     group = (
             literal |
@@ -75,13 +84,16 @@ def make_parser():
     logical_or = pp.Group(logical_and + pp.ZeroOrMore(OR + logical_and)).setName('bin_op')
     expr << logical_or
 
-    stmt << (class_init | (expr+SEMI))
+    stmt << (class_init |
+             (expr+SEMI) |
+             vars_+SEMI)
 
     stmt_list << pp.ZeroOrMore(stmt)
 
 
     class_init << (access + CLASS |pp.Group(pp.Empty()) + CLASS) + ident + LBRACE + pp.Optional(stmt_list) + RBRACE
-    start = class_init
+    program = pp.ZeroOrMore(class_init)
+    start = program
 
 
     def set_parse_action_magic(rule_name: str, parser_element: pp.ParserElement) -> None:

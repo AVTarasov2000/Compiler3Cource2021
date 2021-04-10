@@ -59,6 +59,8 @@ def main() -> None:
     test = '''a class A{
     a class A{
     class A{
+    int a = 0, b = a, c;
+    String a = 0, b = a, c;
     }
     }
     }'''

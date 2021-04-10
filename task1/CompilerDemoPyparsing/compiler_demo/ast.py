@@ -605,50 +605,50 @@ class ClassInitNode(StmtNode):
         self.node_type = TypeDesc.VOID
 
 
-class FuncNode(StmtNode):
-    """Класс для представления в AST-дереве объявления функции
-    """
-
-    def __init__(self, type_: TypeNode, name: IdentNode, body: StmtNode,
-                 row: Optional[int] = None, col: Optional[int] = None, **props) -> None:
-        super().__init__(row=row, col=col, **props)
-        self.type = type_
-        self.name = name
-        self.body = body
-
-    def __str__(self) -> str:
-        return 'function'
-
-    @property
-    def childs(self) -> Tuple[AstNode, ...]:
-        return _GroupNode(str(self.type), self.name), _GroupNode('params', *self.params), self.body
-
-    def semantic_check(self, scope: IdentScope) -> None:
-        if scope.curr_func:
-            self.semantic_error(
-                "Объявление функции ({}) внутри другой функции не поддерживается".format(self.name.name))
-        parent_scope = scope
-        self.type.semantic_check(scope)
-        scope = IdentScope(scope)
-
-        # временно хоть какое-то значение, чтобы при добавлении параметров находить scope функции
-        scope.func = EMPTY_IDENT
-        params = []
-        for param in self.params:
-            # при проверке параметров происходит их добавление в scope
-            param.semantic_check(scope)
-            params.append(param.type.type)
-
-        type_ = TypeDesc(None, self.type.type, tuple(params))
-        func_ident = IdentDesc(self.name.name, type_)
-        scope.func = func_ident
-        self.name.node_type = type_
-        try:
-            self.name.node_ident = parent_scope.curr_global.add_ident(func_ident)
-        except SemanticException as e:
-            self.name.semantic_error("Повторное объявление функции {}".format(self.name.name))
-        self.body.semantic_check(scope)
-        self.node_type = TypeDesc.VOID
+# class FuncNode(StmtNode):
+#     """Класс для представления в AST-дереве объявления функции
+#     """
+#
+#     def __init__(self, type_: TypeNode, name: IdentNode, body: StmtNode,
+#                  row: Optional[int] = None, col: Optional[int] = None, **props) -> None:
+#         super().__init__(row=row, col=col, **props)
+#         self.type = type_
+#         self.name = name
+#         self.body = body
+#
+#     def __str__(self) -> str:
+#         return 'function'
+#
+#     @property
+#     def childs(self) -> Tuple[AstNode, ...]:
+#         return _GroupNode(str(self.type), self.name), _GroupNode('params', *self.params), self.body
+#
+#     def semantic_check(self, scope: IdentScope) -> None:
+#         if scope.curr_func:
+#             self.semantic_error(
+#                 "Объявление функции ({}) внутри другой функции не поддерживается".format(self.name.name))
+#         parent_scope = scope
+#         self.type.semantic_check(scope)
+#         scope = IdentScope(scope)
+#
+#         # временно хоть какое-то значение, чтобы при добавлении параметров находить scope функции
+#         scope.func = EMPTY_IDENT
+#         params = []
+#         for param in self.params:
+#             # при проверке параметров происходит их добавление в scope
+#             param.semantic_check(scope)
+#             params.append(param.type.type)
+#
+#         type_ = TypeDesc(None, self.type.type, tuple(params))
+#         func_ident = IdentDesc(self.name.name, type_)
+#         scope.func = func_ident
+#         self.name.node_type = type_
+#         try:
+#             self.name.node_ident = parent_scope.curr_global.add_ident(func_ident)
+#         except SemanticException as e:
+#             self.name.semantic_error("Повторное объявление функции {}".format(self.name.name))
+#         self.body.semantic_check(scope)
+#         self.node_type = TypeDesc.VOID
 
 
 empty_statement = StmtListNode()
