@@ -23,9 +23,9 @@ def make_parser():
     GE, LE, GT, LT = pp.Literal('>='), pp.Literal('<='), pp.Literal('>'), pp.Literal('<')
     NEQUALS, EQUALS = pp.Literal('!='), pp.Literal('==')
 
-    PRIVATE = pp.Literal('private').suppress()
-    PROTECTED = pp.Literal('protected').suppress()
-    PUBLIC = pp.Literal('public').suppress()
+    PRIVATE = pp.Literal('private')
+    PROTECTED = pp.Literal('protected')
+    PUBLIC = pp.Literal('public')
     access_keys = PUBLIC | PROTECTED | PRIVATE
 
     # access = pp.Optional(PRIVATE | PROTECTED | PUBLIC)
@@ -35,7 +35,7 @@ def make_parser():
 
     CLASS = pp.Literal('class').suppress()
 
-    ASINC = pp.Literal('asinc').suppress()
+    ASYNC = pp.Literal('async').suppress()
     AWAIT = pp.Literal('await').suppress()
 
     IF = pp.Keyword('if')
@@ -47,7 +47,6 @@ def make_parser():
     str_ = pp.QuotedString('"', escChar='\\', unquoteResults=False, convertWhitespaceEscapes=False)
     literal = num | str_ | pp.Regex('true|false')
 
-
     ident = (~keywords + ppc.identifier.copy()).setName('ident')
     type_ = ident.copy().setName('type')
     access = ident.copy().setName('access')
@@ -58,8 +57,7 @@ def make_parser():
     stmt_list = pp.Forward()
     class_init = pp.Forward()
     assign = pp.Forward()
-
-
+    body = pp.Forward()
 
     call = ident + LPAR + pp.Optional(expr + pp.ZeroOrMore(COMMA + expr)) + RPAR
 
@@ -78,20 +76,28 @@ def make_parser():
 
     mult = pp.Group(group + pp.ZeroOrMore((MUL | DIV | MOD) + group)).setName('bin_op')
     add << pp.Group(mult + pp.ZeroOrMore((ADD | SUB) + mult)).setName('bin_op')
-    compare1 = pp.Group(add + pp.Optional((GE | LE | GT | LT) + add)).setName('bin_op')  # GE и LE первыми, т.к. приоритетный выбор
+    compare1 = pp.Group(add + pp.Optional((GE | LE | GT | LT) + add)).setName('bin_op')
     compare2 = pp.Group(compare1 + pp.Optional((EQUALS | NEQUALS) + compare1)).setName('bin_op')
     logical_and = pp.Group(compare2 + pp.ZeroOrMore(AND + compare2)).setName('bin_op')
     logical_or = pp.Group(logical_and + pp.ZeroOrMore(OR + logical_and)).setName('bin_op')
     expr << logical_or
 
-    stmt << (class_init |
-             (expr+SEMI) |
-             vars_+SEMI)
+    param = type_ + ident
+    params = pp.Optional(param + pp.ZeroOrMore(COMMA + param))
+    func = (access_keys | pp.Group(pp.Empty())) + type_ + ident + LPAR + params + RPAR + body
 
+    stmt << (
+             class_init |
+             func |
+             vars_ + SEMI |
+             body
+    )
     stmt_list << pp.ZeroOrMore(stmt)
 
+    body << LBRACE + pp.Optional(stmt_list) + RBRACE
 
-    class_init << (access + CLASS |pp.Group(pp.Empty()) + CLASS) + ident + LBRACE + pp.Optional(stmt_list) + RBRACE
+    class_init << (access_keys | pp.Group(pp.Empty())) + CLASS + ident + body
+
     program = pp.ZeroOrMore(class_init)
     start = program
 

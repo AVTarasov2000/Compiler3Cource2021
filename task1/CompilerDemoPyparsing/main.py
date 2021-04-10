@@ -56,15 +56,24 @@ def main() -> None:
         }
     
     '''
-    test = '''a class A{
-    a class A{
+    test = '''private class A{
+    {
+    int a = 0;
+    }
+    public class A{
     class A{
     int a = 0, b = a, c;
     String a = 0, b = a, c;
+    public int A(){
+    }
     }
     }
     }'''
-
+    test1 = '''
+        private int A(){
+        int a = 0;
+        }
+        '''
     program.execute(test)
 
 
