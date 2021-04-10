@@ -159,9 +159,6 @@ class TypeNode(IdentNode):
 
 
 class AccessNode(IdentNode):
-    """Класс для представления в AST-дереве типов данный
-       (при появлении составных типов данных должен быть расширен)
-    """
 
     def __init__(self, name: str,
                  row: Optional[int] = None, col: Optional[int] = None, **props) -> None:
@@ -582,7 +579,7 @@ class ClassInitNode(StmtNode):
     def __init__(self, access: AccessNode, name: IdentNode, body: Optional[StmtListNode] = None,
                  row: Optional[int] = None, col: Optional[int] = None, **props) -> None:
         super().__init__(row=row, col=col, **props)
-        self.access = access
+        self.access = access if access else empty_access
         self.name = name
         self.body = body if body else empty_statement
 
@@ -655,3 +652,4 @@ class FuncNode(StmtNode):
 
 
 empty_statement = StmtListNode()
+empty_access = AccessNode("")

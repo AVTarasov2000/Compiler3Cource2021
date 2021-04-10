@@ -48,7 +48,7 @@ class AccessType(Enum):
     PUBLIC: 'AccessType'
     PROTECTED: 'AccessType'
     PRIVATE: 'AccessType'
-
+    PACKAGE_PRIVATE: 'AccessType'
     def __init__(self, base_type_: Optional[BaseType] = None,
                  return_type: Optional['AccessType'] = None, params: Optional[Tuple['AccessType']] = None) -> None:
         self.base_type = base_type_
@@ -62,6 +62,8 @@ class AccessType(Enum):
     @staticmethod
     def from_str(str_decl: str) -> 'AccessType':
         try:
+            if str_decl == "":
+                AccessType.PACKAGE_PRIVATE
             base_type_ = BaseType(str_decl)
             return AccessType.from_base_type(base_type_)
         except:
