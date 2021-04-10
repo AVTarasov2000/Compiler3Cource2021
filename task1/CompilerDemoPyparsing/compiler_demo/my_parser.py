@@ -30,13 +30,13 @@ def make_parser():
 
     # access = pp.Optional(PRIVATE | PROTECTED | PUBLIC)
 
-    STATIC = pp.Literal('static').suppress()
+    STATIC = pp.Literal('static')
     VOID = pp.Literal('void').suppress()
 
     CLASS = pp.Literal('class').suppress()
 
-    ASYNC = pp.Literal('async').suppress()
-    AWAIT = pp.Literal('await').suppress()
+    ASYNC = pp.Literal('async')
+    AWAIT = pp.Literal('await')
 
     IF = pp.Keyword('if')
     FOR = pp.Keyword('for')
@@ -84,17 +84,17 @@ def make_parser():
 
     param = type_ + ident
     params = pp.Optional(param + pp.ZeroOrMore(COMMA + param))
-    func = (access_keys | pp.Group(pp.Empty())) + type_ + ident + LPAR + params + RPAR + body
+    func = (ASYNC | pp.Group(pp.Empty())) + (access_keys | pp.Group(pp.Empty())) + (STATIC | pp.Group(pp.Empty())) + type_ + ident + LPAR + params + RPAR + body
 
     stmt << (
-             class_init |
-             func |
-             vars_ + SEMI |
-             body
+             class_init
+             | func
+             | vars_ + SEMI
+             | body
     )
-    stmt_list << pp.ZeroOrMore(stmt)
+    stmt_list = pp.ZeroOrMore(stmt)
 
-    body << LBRACE + pp.Optional(stmt_list) + RBRACE
+    body << LBRACE + stmt_list + RBRACE
 
     class_init << (access_keys | pp.Group(pp.Empty())) + CLASS + ident + body
 
@@ -127,7 +127,7 @@ def make_parser():
                 if not inspect.isabstract(cls):
                     def parse_action(s, loc, tocs):
                         if cls is FuncNode:
-                            return FuncNode(tocs[0], tocs[1], tocs[2:-1], tocs[-1], loc=loc)
+                            return FuncNode(tocs[0], tocs[1], tocs[2],tocs[3], tocs[4], tocs[5:-1], tocs[-1], loc=loc)
                         else:
                             return cls(*tocs, loc=loc)
 

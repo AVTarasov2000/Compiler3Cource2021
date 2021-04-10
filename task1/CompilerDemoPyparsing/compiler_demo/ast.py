@@ -500,10 +500,12 @@ class FuncNode(StmtNode):
     """Класс для представления в AST-дереве объявления функции
     """
 
-    def __init__(self, type_: TypeNode, name: IdentNode, params: Tuple[ParamNode], body: Optional[StmtNode] = None,
+    def __init__(self, async_: AccessNode, access: AccessNode, static: AccessNode, type_: TypeNode, name: IdentNode, params: Tuple[ParamNode], body: Optional[StmtNode] = None,
                  row: Optional[int] = None, col: Optional[int] = None, **props) -> None:
         super().__init__(row=row, col=col, **props)
-        # self.access = access if access else empty_access #||  access: AccessNode,
+        self.async_ = async_
+        self.access = access if access else empty_access #||  access: AccessNode,
+        self.static = static
         self.type = type_
         self.name = name
         self.params = params
@@ -514,7 +516,12 @@ class FuncNode(StmtNode):
 
     @property
     def childs(self) -> Tuple[AstNode, ...]:
-        return _GroupNode(str(self.type), self.name), _GroupNode('params', *self.params), self.body
+        return _GroupNode(str(self.async_),
+                          _GroupNode(str(self.access),
+                                     _GroupNode(str(self.static),
+                                                _GroupNode(str(self.type),
+                                                           self.name),
+                                                ))) , _GroupNode('params', *self.params),self.body
 
     def semantic_check(self, scope: IdentScope) -> None:
         if scope.curr_func:
@@ -582,7 +589,7 @@ class ClassInitNode(StmtNode):
         super().__init__(row=row, col=col, **props)
         self.access = access if access else empty_access
         self.name = name
-        self.body = body if body else empty_statement
+        self.body = body if body else empty_statement_list
 
     def __str__(self) -> str:
         return 'class'
@@ -606,5 +613,5 @@ class ClassInitNode(StmtNode):
         self.node_type = TypeDesc.VOID
 
 
-empty_statement = StmtListNode()
+empty_statement_list = StmtListNode()
 empty_access = AccessNode("")

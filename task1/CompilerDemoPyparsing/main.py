@@ -64,13 +64,14 @@ def main() -> None:
     class A{
     int a = 0, b = a, c;
     String a = 0, b = a, c;
-    public int A(){
+    async public static int A ( int a, int b){
+        bool x = true;
     }
     }
     }
     }'''
     test1 = '''
-        private int A(){
+        private class A{
         int a = 0;
         }
         '''
