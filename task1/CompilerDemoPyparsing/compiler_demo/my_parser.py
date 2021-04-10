@@ -55,7 +55,6 @@ def make_parser():
     expr = pp.Forward()
     stmt = pp.Forward()
     stmt_list = pp.Forward()
-    cls = pp.Forward
 
     call = ident + LPAR + pp.Optional(expr + pp.ZeroOrMore(COMMA + expr)) + RPAR
 
@@ -73,8 +72,9 @@ def make_parser():
     logical_and = pp.Group(compare2 + pp.ZeroOrMore(AND + compare2)).setName('bin_op')
     logical_or = pp.Group(logical_and + pp.ZeroOrMore(OR + logical_and)).setName('bin_op')
     expr << logical_or
+    stmt_list << expr
 
-    class_init = access + CLASS + ident + LBRACE + pp.Optional(expr) + RBRACE
+    class_init = access + CLASS + ident + LBRACE + pp.Optional(stmt_list) + RBRACE
     start = class_init
 
 

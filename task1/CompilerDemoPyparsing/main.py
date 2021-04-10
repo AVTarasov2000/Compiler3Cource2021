@@ -56,7 +56,7 @@ def main() -> None:
         }
     
     '''
-    test = '''public class A{}'''
+    test = '''public class A{2+2}'''
 
     program.execute(test)
 

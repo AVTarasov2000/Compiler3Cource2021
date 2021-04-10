@@ -3,7 +3,7 @@ from contextlib import suppress
 from typing import Optional, Union, Tuple, Callable
 
 from .semantic import TYPE_CONVERTIBILITY, BIN_OP_TYPE_COMPATIBILITY, BinOp, \
-    TypeDesc, IdentDesc, ScopeType, IdentScope, SemanticException
+    TypeDesc, IdentDesc, ScopeType, IdentScope, SemanticException, AccessType
 
 
 class AstNode(ABC):
@@ -158,7 +158,7 @@ class TypeNode(IdentNode):
             self.semantic_error('Неизвестный тип {}'.format(self.name))
 
 
-class AccesNode(IdentNode):
+class AccessNode(IdentNode):
     """Класс для представления в AST-дереве типов данный
        (при появлении составных типов данных должен быть расширен)
     """
@@ -168,7 +168,7 @@ class AccesNode(IdentNode):
         super().__init__(name, row=row, col=col, **props)
         self.type = None
         with suppress(SemanticException):
-            self.type = AccesNode.from_str(name)
+            self.type = AccessType.from_str(name)
 
     def to_str_full(self):
         return self.to_str()
@@ -300,10 +300,11 @@ class TypeConvertNode(ExprNode):
 
     @property
     def childs(self) -> Tuple[AstNode, ...]:
-        return (_GroupNode(str(self.type), self.expr), )
+        return (_GroupNode(str(self.type), self.expr),)
 
 
-def type_convert(expr: ExprNode, type_: TypeDesc, except_node: Optional[AstNode] = None, comment: Optional[str] = None) -> ExprNode:
+def type_convert(expr: ExprNode, type_: TypeDesc, except_node: Optional[AstNode] = None,
+                 comment: Optional[str] = None) -> ExprNode:
     """Метод преобразования ExprNode узла AST-дерева к другому типу
     :param expr: узел AST-дерева
     :param type_: требуемый тип
@@ -317,7 +318,8 @@ def type_convert(expr: ExprNode, type_: TypeDesc, except_node: Optional[AstNode]
     if expr.node_type == type_:
         return expr
     if expr.node_type.is_simple and type_.is_simple and \
-            expr.node_type.base_type in TYPE_CONVERTIBILITY and type_.base_type in TYPE_CONVERTIBILITY[expr.node_type.base_type]:
+            expr.node_type.base_type in TYPE_CONVERTIBILITY and type_.base_type in TYPE_CONVERTIBILITY[
+        expr.node_type.base_type]:
         return TypeConvertNode(expr, type_)
     else:
         (except_node if except_node else expr).semantic_error('Тип {0}{2} не конвертируется в {1}'.format(
@@ -400,7 +402,7 @@ class ReturnNode(StmtNode):
 
     @property
     def childs(self) -> Tuple[ExprNode]:
-        return (self.val, )
+        return (self.val,)
 
     def semantic_check(self, scope: IdentScope) -> None:
         self.val.semantic_check(IdentScope(scope))
@@ -518,7 +520,8 @@ class FuncNode(StmtNode):
 
     def semantic_check(self, scope: IdentScope) -> None:
         if scope.curr_func:
-            self.semantic_error("Объявление функции ({}) внутри другой функции не поддерживается".format(self.name.name))
+            self.semantic_error(
+                "Объявление функции ({}) внутри другой функции не поддерживается".format(self.name.name))
         parent_scope = scope
         self.type.semantic_check(scope)
         scope = IdentScope(scope)
@@ -572,27 +575,28 @@ EMPTY_STMT = StmtListNode()
 EMPTY_IDENT = IdentDesc('', TypeDesc.VOID)
 
 
-class ClsNode(StmtNode):
+class ClassInitNode(StmtNode):
     """Класс для представления в AST-дереве объявления функции
     """
 
-    def __init__(self, name: IdentNode, body: StmtNode,
+    def __init__(self, access: AccessNode, name: IdentNode, body: Optional[StmtListNode] = None,
                  row: Optional[int] = None, col: Optional[int] = None, **props) -> None:
         super().__init__(row=row, col=col, **props)
-        self.type = type_
+        self.access = access
         self.name = name
-        self.body = body
+        self.body = body if body else empty_statement
 
     def __str__(self) -> str:
         return 'class'
 
     @property
     def childs(self) -> Tuple[AstNode, ...]:
-        return _GroupNode(str(self.type), self.name), self.body
+        return _GroupNode(str(self.access), self.name), self.body
 
     def semantic_check(self, scope: IdentScope) -> None:
         if scope.curr_func:
-            self.semantic_error("Объявление функции ({}) внутри другой функции не поддерживается".format(self.name.name))
+            self.semantic_error(
+                "Объявление функции ({}) внутри другой функции не поддерживается".format(self.name.name))
         parent_scope = scope
         self.type.semantic_check(scope)
         scope = IdentScope(scope)
@@ -624,7 +628,8 @@ class FuncNode(StmtNode):
 
     def semantic_check(self, scope: IdentScope) -> None:
         if scope.curr_func:
-            self.semantic_error("Объявление функции ({}) внутри другой функции не поддерживается".format(self.name.name))
+            self.semantic_error(
+                "Объявление функции ({}) внутри другой функции не поддерживается".format(self.name.name))
         parent_scope = scope
         self.type.semantic_check(scope)
         scope = IdentScope(scope)
@@ -647,3 +652,6 @@ class FuncNode(StmtNode):
             self.name.semantic_error("Повторное объявление функции {}".format(self.name.name))
         self.body.semantic_check(scope)
         self.node_type = TypeDesc.VOID
+
+
+empty_statement = StmtListNode()
