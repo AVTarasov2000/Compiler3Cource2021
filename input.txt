@@ -1,0 +1,4 @@
+3
+110 plus 111 xor 101
+1011 and 101 minus 111
+111 xor 110 or 100
