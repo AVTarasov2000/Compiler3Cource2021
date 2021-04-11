@@ -174,6 +174,18 @@ class AccessNode(IdentNode):
         if self.type is None:
             self.semantic_error('Неизвестный тип {}'.format(self.name))
 
+#
+# class AwaitCallNode(ExprNode):
+#     def __init__(self, await_: AccessNode,  expr: ExprNode,
+#                  row: Optional[int] = None, col: Optional[int] = None, **props) -> None:
+#         super().__init__(row=row, col=col, **props)
+#         self.await_ = await_ if await_ else empty_access
+#         self.expr = expr
+#
+#     @property
+#     def childs(self) -> Tuple[AstNode, ...]:
+#         return self.await_, self.expr
+
 
 class BinOpNode(ExprNode):
     """Класс для представления в AST-дереве бинарных операций
@@ -223,24 +235,6 @@ class BinOpNode(ExprNode):
             self.op, self.arg1.node_type, self.arg2.node_type
         ))
 
-
-class AwaitCallNode(ExprNode):
-    """Класс для представления в AST-дереве вызова функций
-       (в языке программирования может быть как expression, так и statement)
-    """
-
-    def __init__(self, await_: AccessNode, expr: ExprNode,
-                 row: Optional[int] = None, col: Optional[int] = None, **props) -> None:
-        super().__init__(row=row, col=col, **props)
-        self.await_ = await_
-        self.expr = expr
-
-    def __str__(self) -> str:
-        return 'call'
-
-    @property
-    def childs(self) -> _GroupNode:
-        return _GroupNode(str(self.await_), self.expr)
 
 
 class CallNode(ExprNode):
@@ -299,6 +293,24 @@ class CallNode(ExprNode):
             self.func.node_ident = func
             self.node_type = func.type.return_type
 
+
+class CallerNode(ExprNode):
+    """Класс для представления в AST-дереве вызова функций
+       (в языке программирования может быть как expression, так и statement)
+    """
+
+    def __init__(self,call: CallNode, expr: ExprNode,
+                 row: Optional[int] = None, col: Optional[int] = None, **props) -> None:
+        super().__init__(row=row, col=col, **props)
+        self.call = call
+        self.expr = expr
+
+    def __str__(self) -> str:
+        return 'caller'
+
+    @property
+    def childs(self) -> Tuple[AstNode, ...]:
+        return _GroupNode(str(self.call)), self.expr
 
 class TypeConvertNode(ExprNode):
     """Класс для представления в AST-дереве операций конвертации типов данных

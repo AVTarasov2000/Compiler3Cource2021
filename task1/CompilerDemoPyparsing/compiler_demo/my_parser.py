@@ -63,23 +63,23 @@ def make_parser():
     func_body = pp.Forward()
     assign = pp.Forward()
     dot = pp.Forward()
-    await_call = pp.Forward()
+    caller = pp.Forward()
 
 
-    call = ident + LPAR + pp.Optional(expr + pp.ZeroOrMore(COMMA + expr)) + RPAR
+    call = ident + LPAR + pp.Optional(caller + pp.ZeroOrMore(COMMA + caller)) + RPAR
 
 
-    assign = ident + ASSIGN.suppress() + expr
+    assign = ident + ASSIGN.suppress() + caller
     var_inner = assign | ident
     vars_ = type_ + var_inner + pp.ZeroOrMore(COMMA + var_inner)
 
     group = (
             literal |
             dot |
-            LPAR + expr + RPAR
+            LPAR + caller + RPAR
     )
 
-    dot << pp.Group((call | ident) + pp.ZeroOrMore(DOT + (call | ident))).setName('bin_op') # обязательно перед ident, т.к. приоритетный выбор (или использовать оператор ^ вместо | )
+    dot << pp.Group((call | ident) + pp.ZeroOrMore(DOT + (call | ident))).setName('bin_op') # обязательно call перед ident, т.к. приоритетный выбор (или использовать оператор ^ вместо | )
     mult = pp.Group(group + pp.ZeroOrMore((MUL | DIV | MOD) + group)).setName('bin_op')
     add << pp.Group(mult + pp.ZeroOrMore((ADD | SUB) + mult)).setName('bin_op')
     compare1 = pp.Group(add + pp.Optional((GE | LE | GT | LT) + add)).setName('bin_op')
@@ -88,7 +88,7 @@ def make_parser():
     logical_or = pp.Group(logical_and + pp.ZeroOrMore(OR + logical_and)).setName('bin_op')
     expr << logical_or
 
-    await_call = (AWAIT | pp.Group(pp.Empty())) + expr
+    caller << (AWAIT | pp.Group(pp.Empty())) + expr
     param = type_ + ident
     params = pp.Optional(param + pp.ZeroOrMore(COMMA + param))
     func = (ASYNC | pp.Group(pp.Empty())) + (access_keys | pp.Group(pp.Empty())) + (

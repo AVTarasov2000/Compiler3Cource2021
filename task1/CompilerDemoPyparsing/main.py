@@ -60,7 +60,9 @@ def main() -> None:
     {
     }
     async int a(int b){
-    int a = a().b.c().c.v();
+        int a = a().b.c().c.v();
+        int a = await a();
+        a();
     }
     public class A{
     class A{
