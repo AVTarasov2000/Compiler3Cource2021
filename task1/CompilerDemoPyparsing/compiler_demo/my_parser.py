@@ -55,11 +55,18 @@ def make_parser():
     expr = pp.Forward()
     stmt = pp.Forward()
     stmt_list = pp.Forward()
-    class_init = pp.Forward()
-    assign = pp.Forward()
     body = pp.Forward()
+    class_init = pp.Forward()
+    func_stmt = pp.Forward()
+    func_class_init = pp.Forward()
+    func_body = pp.Forward()
+    assign = pp.Forward()
+
+
 
     call = ident + LPAR + pp.Optional(expr + pp.ZeroOrMore(COMMA + expr)) + RPAR
+    # call = ident + pp.Optional(LPAR + expr + pp.ZeroOrMore(COMMA + expr) + RPAR)
+    # call = ident + LPAR + pp.Optional(expr + pp.ZeroOrMore(COMMA + expr)) + RPAR
 
     assign = ident + ASSIGN.suppress() + expr
     var_inner = assign | ident
@@ -84,7 +91,7 @@ def make_parser():
 
     param = type_ + ident
     params = pp.Optional(param + pp.ZeroOrMore(COMMA + param))
-    func = (ASYNC | pp.Group(pp.Empty())) + (access_keys | pp.Group(pp.Empty())) + (STATIC | pp.Group(pp.Empty())) + type_ + ident + LPAR + params + RPAR + body
+    func = (ASYNC | pp.Group(pp.Empty())) + (access_keys | pp.Group(pp.Empty())) + (STATIC | pp.Group(pp.Empty())) + type_ + ident + LPAR + params + RPAR + func_body
 
     stmt << (
              class_init
@@ -92,11 +99,21 @@ def make_parser():
              | vars_ + SEMI
              | body
     )
+
+    func_stmt << (
+            func_class_init
+            | vars_ + SEMI
+            | body
+    )
+
     stmt_list = pp.ZeroOrMore(stmt)
+    func_stmt_list = pp.ZeroOrMore(func_stmt)
 
     body << LBRACE + stmt_list + RBRACE
+    func_body << LBRACE + func_stmt_list + RBRACE
 
     class_init << (access_keys | pp.Group(pp.Empty())) + CLASS + ident + body
+    func_class_init << CLASS + ident + body
 
     program = pp.ZeroOrMore(class_init)
     start = program
