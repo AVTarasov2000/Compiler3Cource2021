@@ -224,6 +224,25 @@ class BinOpNode(ExprNode):
         ))
 
 
+class AwaitCallNode(ExprNode):
+    """Класс для представления в AST-дереве вызова функций
+       (в языке программирования может быть как expression, так и statement)
+    """
+
+    def __init__(self, await_: AccessNode, expr: ExprNode,
+                 row: Optional[int] = None, col: Optional[int] = None, **props) -> None:
+        super().__init__(row=row, col=col, **props)
+        self.await_ = await_
+        self.expr = expr
+
+    def __str__(self) -> str:
+        return 'call'
+
+    @property
+    def childs(self) -> _GroupNode:
+        return _GroupNode(str(self.await_), self.expr)
+
+
 class CallNode(ExprNode):
     """Класс для представления в AST-дереве вызова функций
        (в языке программирования может быть как expression, так и statement)
@@ -232,6 +251,7 @@ class CallNode(ExprNode):
     def __init__(self, func: IdentNode, *params: ExprNode,
                  row: Optional[int] = None, col: Optional[int] = None, **props) -> None:
         super().__init__(row=row, col=col, **props)
+        # self.await_ = await_ ||await_: AccessNode
         self.func = func
         self.params = params
 
@@ -239,8 +259,8 @@ class CallNode(ExprNode):
         return 'call'
 
     @property
-    def childs(self) -> Tuple[IdentNode, ...]:
-        return (self.func, *self.params)
+    def childs(self) -> Tuple[AstNode, ...]:
+        return self.func, _GroupNode('params', *self.params)
 
     def semantic_check(self, scope: IdentScope) -> None:
         func = scope.get_ident(self.func.name)
@@ -504,7 +524,7 @@ class FuncNode(StmtNode):
                  row: Optional[int] = None, col: Optional[int] = None, **props) -> None:
         super().__init__(row=row, col=col, **props)
         self.async_ = async_
-        self.access = access if access else empty_access #||  access: AccessNode,
+        self.access = access if access else empty_access
         self.static = static
         self.type = type_
         self.name = name
@@ -521,7 +541,7 @@ class FuncNode(StmtNode):
                                      _GroupNode(str(self.static),
                                                 _GroupNode(str(self.type),
                                                            self.name),
-                                                ))) , _GroupNode('params', *self.params),self.body
+                                                ))), _GroupNode('params', *self.params), self.body
 
     def semantic_check(self, scope: IdentScope) -> None:
         if scope.curr_func:

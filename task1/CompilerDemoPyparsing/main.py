@@ -58,19 +58,15 @@ def main() -> None:
     '''
     test = '''private class A{
     {
-    int a = 0;
+    }
+    async int a(int b){
+    int a = a().b.c().c.v();
     }
     public class A{
     class A{
+  
     int a = 0, b = a, c;
     String a = 0, b = a, c;
-    async public static int A (){
-        class B{
-         async public static int A (){
-            class B{}
-         }
-        }
-        bool x = true;
     }
     }
     }

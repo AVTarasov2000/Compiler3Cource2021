@@ -12,6 +12,7 @@ def make_parser():
     LBRACK, RBRACK = pp.Literal("[").suppress(), pp.Literal("]").suppress()
     LBRACE, RBRACE = pp.Literal("{").suppress(), pp.Literal("}").suppress()
     SEMI, COMMA = pp.Literal(';').suppress(), pp.Literal(',').suppress()
+    DOT = pp.Literal('.')
     ASSIGN = pp.Literal('=')
 
     ADD, SUB = pp.Literal('+'), pp.Literal('-')
@@ -61,26 +62,24 @@ def make_parser():
     func_class_init = pp.Forward()
     func_body = pp.Forward()
     assign = pp.Forward()
-
+    dot = pp.Forward()
+    await_call = pp.Forward()
 
 
     call = ident + LPAR + pp.Optional(expr + pp.ZeroOrMore(COMMA + expr)) + RPAR
-    # call = ident + pp.Optional(LPAR + expr + pp.ZeroOrMore(COMMA + expr) + RPAR)
-    # call = ident + LPAR + pp.Optional(expr + pp.ZeroOrMore(COMMA + expr)) + RPAR
+
 
     assign = ident + ASSIGN.suppress() + expr
     var_inner = assign | ident
     vars_ = type_ + var_inner + pp.ZeroOrMore(COMMA + var_inner)
 
-    simple_stmt = assign | call
-
     group = (
             literal |
-            call |  # обязательно перед ident, т.к. приоритетный выбор (или использовать оператор ^ вместо | )
-            ident |
+            dot |
             LPAR + expr + RPAR
     )
 
+    dot << pp.Group((call | ident) + pp.ZeroOrMore(DOT + (call | ident))).setName('bin_op') # обязательно перед ident, т.к. приоритетный выбор (или использовать оператор ^ вместо | )
     mult = pp.Group(group + pp.ZeroOrMore((MUL | DIV | MOD) + group)).setName('bin_op')
     add << pp.Group(mult + pp.ZeroOrMore((ADD | SUB) + mult)).setName('bin_op')
     compare1 = pp.Group(add + pp.Optional((GE | LE | GT | LT) + add)).setName('bin_op')
@@ -89,20 +88,23 @@ def make_parser():
     logical_or = pp.Group(logical_and + pp.ZeroOrMore(OR + logical_and)).setName('bin_op')
     expr << logical_or
 
+    await_call = (AWAIT | pp.Group(pp.Empty())) + expr
     param = type_ + ident
     params = pp.Optional(param + pp.ZeroOrMore(COMMA + param))
-    func = (ASYNC | pp.Group(pp.Empty())) + (access_keys | pp.Group(pp.Empty())) + (STATIC | pp.Group(pp.Empty())) + type_ + ident + LPAR + params + RPAR + func_body
+    func = (ASYNC | pp.Group(pp.Empty())) + (access_keys | pp.Group(pp.Empty())) + (
+            STATIC | pp.Group(pp.Empty())) + type_ + ident + LPAR + params + RPAR + func_body
 
     stmt << (
-             class_init
-             | func
-             | vars_ + SEMI
-             | body
+            class_init
+            | func
+            | vars_ + SEMI
+            | func_body
     )
 
     func_stmt << (
             func_class_init
             | vars_ + SEMI
+            | call + SEMI
             | body
     )
 
@@ -117,7 +119,6 @@ def make_parser():
 
     program = pp.ZeroOrMore(class_init)
     start = program
-
 
     def set_parse_action_magic(rule_name: str, parser_element: pp.ParserElement) -> None:
         if rule_name == rule_name.upper():
@@ -144,7 +145,7 @@ def make_parser():
                 if not inspect.isabstract(cls):
                     def parse_action(s, loc, tocs):
                         if cls is FuncNode:
-                            return FuncNode(tocs[0], tocs[1], tocs[2],tocs[3], tocs[4], tocs[5:-1], tocs[-1], loc=loc)
+                            return FuncNode(tocs[0], tocs[1], tocs[2], tocs[3], tocs[4], tocs[5:-1], tocs[-1], loc=loc)
                         else:
                             return cls(*tocs, loc=loc)
 
