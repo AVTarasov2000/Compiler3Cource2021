@@ -58,6 +58,9 @@ def main() -> None:
     '''
     test = '''private class A{
     {
+    b();
+    int a = 1+2+b().a.b();
+    a = 1;
     }
     async int a(int b){
         int a = a().b.c().c.v();
@@ -66,7 +69,6 @@ def main() -> None:
     }
     public class A{
     class A{
-  
     int a = 0, b = a, c;
     String a = 0, b = a, c;
     }

@@ -106,6 +106,7 @@ def make_parser():
             | vars_ + SEMI
             | call + SEMI
             | body
+            | assign + SEMI
     )
 
     stmt_list = pp.ZeroOrMore(stmt)
