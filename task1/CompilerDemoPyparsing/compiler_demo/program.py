@@ -12,16 +12,20 @@ def execute(prog: str) -> None:
     while len(satck) != 0:
         curr_element = satck.pop()
         coords = " [call: " + str(curr_element.col) + " row: " + str(curr_element.row) + "]"
-        if (FuncNode.__name__ == curr_element.__class__.__name__):
+        if FuncNode.__name__ == curr_element.__class__.__name__:
             print("Function: " + curr_element.__class__.__name__ + " " + str(curr_element.type) + " " + str(curr_element.name) + coords)
-        elif (IdentNode.__name__ == curr_element.__class__.__name__):
+        elif IdentNode.__name__ == curr_element.__class__.__name__:
             print("Ident: " + curr_element.__class__.__name__ + " " + curr_element.__str__()  + coords)
-        elif (AccessNode.__name__ == curr_element.__class__.__name__):
+        elif AccessNode.__name__ == curr_element.__class__.__name__:
             print("Access: " + curr_element.__class__.__name__ + " " + str(curr_element.type)  + coords)
-        elif (AssignNode.__name__ == curr_element.__class__.__name__):
+        elif AssignNode.__name__ == curr_element.__class__.__name__:
             print("Assign: " + curr_element.__class__.__name__ + " var:" + str(curr_element.var) + " , val: " + str(curr_element.val) + coords)
-        elif (VarsNode.__name__ == curr_element.__class__.__name__):
-            print("VarsNode: " + curr_element.__class__.__name__ + " type:" + str(curr_element.type) + " , vars " + str(*(curr_element.vars)) + coords)
+        elif VarsNode.__name__ == curr_element.__class__.__name__:
+            if curr_element.vars[0].__class__.__name__ == IdentNode.__name__:
+                print("VarsNode: " + curr_element.__class__.__name__ + " type:" + str(curr_element.type) + " , var_name: " + str(*(curr_element.vars)) + coords)
+            elif curr_element.vars[0].__class__.__name__ == AssignNode.__name__:
+                print("VarsNode: " + curr_element.__class__.__name__ + " type:" + str(curr_element.type) + " , var_name: " + str(curr_element.vars[0].var.name) + coords)
+
         else:
             print(curr_element.__class__.__name__)
 
