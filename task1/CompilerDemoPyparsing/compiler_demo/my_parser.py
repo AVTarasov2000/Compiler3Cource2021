@@ -90,8 +90,10 @@ def make_parser():
     caller << (AWAIT | pp.Group(pp.Empty())) + expr
     param = type_ + ident
     params = pp.Optional(param + pp.ZeroOrMore(COMMA + param))
-    func = (ASYNC | pp.Group(pp.Empty())) + (access_keys | pp.Group(pp.Empty())) + (
-            STATIC | pp.Group(pp.Empty())) + type_ + ident + LPAR + params + RPAR + func_body
+    func_struct = (ASYNC | pp.Group(pp.Empty())) + (access_keys | pp.Group(pp.Empty())) + (
+            STATIC | pp.Group(pp.Empty())) + type_ + ident + LPAR + params + RPAR
+
+    func = func_struct + func_body
 
     stmt << (
             class_init

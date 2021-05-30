@@ -58,9 +58,9 @@ def main() -> None:
     '''
     test1 = '''private class A{
     {
-    b();
-    int a = 1+2+b().a.b();
-    a = 1;
+        await b();
+        int a = 1+2+b().a.b();
+        a = 1;
     }
     async int a(int b){
         int a = a().b.c().c.v();
