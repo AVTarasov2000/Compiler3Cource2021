@@ -56,7 +56,7 @@ def main() -> None:
         }
     
     '''
-    test = '''private class A{
+    test1 = '''private class A{
     {
     b();
     int a = 1+2+b().a.b();
@@ -74,8 +74,20 @@ def main() -> None:
     }
     }
     }
+    }
+    class B{
+    int a = 0, b = a, c;
+    String a = 0, b = a, c;
     }'''
-
+    test = '''private class A{
+               int a;
+               public void calk(int c){
+               a = await func(c);
+               }
+               async public int func(int b){
+                   int a = b;
+               }
+           }'''
     program.execute(test)
 
 
