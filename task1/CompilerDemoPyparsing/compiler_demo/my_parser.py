@@ -105,6 +105,7 @@ def make_parser():
             func_class_init
             | vars_ + SEMI
             | call + SEMI
+            | caller + SEMI
             | body
             | assign + SEMI
     )
