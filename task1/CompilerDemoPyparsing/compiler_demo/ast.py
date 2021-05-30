@@ -363,6 +363,14 @@ class StmtNode(ExprNode, ABC):
         return self.to_str()
 
 
+class FuncStmtNode(ExprNode, ABC):
+    """Абстракный класс для деклараций или инструкций в AST-дереве
+    """
+
+    def to_str_full(self):
+        return self.to_str()
+
+
 class AssignNode(ExprNode):
     """Класс для представления в AST-дереве оператора присваивания
     """
@@ -583,6 +591,30 @@ class FuncNode(StmtNode):
 
 
 class StmtListNode(StmtNode):
+    """Класс для представления в AST-дереве последовательности инструкций
+    """
+
+    def __init__(self, *exprs: StmtNode,
+                 row: Optional[int] = None, col: Optional[int] = None, **props) -> None:
+        super().__init__(row=row, col=col, **props)
+        self.exprs = exprs
+        self.program = False
+
+    def __str__(self) -> str:
+        return '...'
+
+    @property
+    def childs(self) -> Tuple[StmtNode, ...]:
+        return self.exprs
+
+    def semantic_check(self, scope: IdentScope) -> None:
+        if not self.program:
+            scope = IdentScope(scope)
+        for expr in self.exprs:
+            expr.semantic_check(scope)
+        self.node_type = TypeDesc.VOID
+
+class FuncStmtListNode(StmtNode):
     """Класс для представления в AST-дереве последовательности инструкций
     """
 
