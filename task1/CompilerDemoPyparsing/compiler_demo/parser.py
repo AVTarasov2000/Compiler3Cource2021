@@ -101,9 +101,6 @@ def make_parser():
     params = pp.Optional(param + pp.ZeroOrMore(COMMA + param))
     func = type_ + ident + LPAR + params + RPAR + LBRACE + stmt_list + RBRACE
 
-
-
-
     stmt << (
         if_ |
         for_ |

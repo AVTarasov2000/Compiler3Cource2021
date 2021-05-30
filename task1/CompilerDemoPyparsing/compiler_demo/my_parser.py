@@ -65,9 +65,7 @@ def make_parser():
     dot = pp.Forward()
     caller = pp.Forward()
 
-
     call = ident + LPAR + pp.Optional(caller + pp.ZeroOrMore(COMMA + caller)) + RPAR
-
 
     assign = ident + ASSIGN.suppress() + caller
     var_inner = assign | ident
@@ -79,7 +77,8 @@ def make_parser():
             LPAR + caller + RPAR
     )
 
-    dot << pp.Group((call | ident) + pp.ZeroOrMore(DOT + (call | ident))).setName('bin_op') # обязательно call перед ident, т.к. приоритетный выбор (или использовать оператор ^ вместо | )
+    dot << pp.Group((call | ident) + pp.ZeroOrMore(DOT + (call | ident))).setName(
+        'bin_op')  # обязательно call перед ident, т.к. приоритетный выбор (или использовать оператор ^ вместо | )
     mult = pp.Group(group + pp.ZeroOrMore((MUL | DIV | MOD) + group)).setName('bin_op')
     add << pp.Group(mult + pp.ZeroOrMore((ADD | SUB) + mult)).setName('bin_op')
     compare1 = pp.Group(add + pp.Optional((GE | LE | GT | LT) + add)).setName('bin_op')

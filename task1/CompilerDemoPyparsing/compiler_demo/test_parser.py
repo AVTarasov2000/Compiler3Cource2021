@@ -8,9 +8,6 @@ from .ast import *
 
 # noinspection PyPep8Naming
 def make_parser():
-
-
-
     # IF = pp.Keyword('if')
     # FOR = pp.Keyword('for')
     # RETURN = pp.Keyword('return')

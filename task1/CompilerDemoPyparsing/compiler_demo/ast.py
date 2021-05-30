@@ -7,8 +7,7 @@ from .semantic import TYPE_CONVERTIBILITY, BIN_OP_TYPE_COMPATIBILITY, BinOp, \
 
 
 class AstNode(ABC):
-    """Базовый абстрактый класс узла AST-дерева
-    """
+    """Базовый абстрактый класс узла AST-дерева"""
 
     init_action: Callable[['AstNode'], None] = None
 
