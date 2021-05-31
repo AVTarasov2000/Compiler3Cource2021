@@ -6,16 +6,16 @@ class Log:
 
 
 class VarInitLog(Log):
-    def __init__(self, type_, name, call, row) -> None:
+    def __init__(self, type, name, call, row) -> None:
         super().__init__(name=name, row=row, call=call)
-        self.type = type_
+        self.type = type
         self.log_title = "var_init"
 
 
 class FuncInitLog(Log):
-    def __init__(self, type_, name, call, row) -> None:
+    def __init__(self, type, name, call, row) -> None:
         super().__init__(name=name, row=row, call=call)
-        self.type = type_
+        self.type = type
 
 
 class CollVarLog(Log):
