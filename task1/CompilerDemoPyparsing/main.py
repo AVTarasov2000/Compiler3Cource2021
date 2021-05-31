@@ -82,7 +82,10 @@ def main() -> None:
     test = '''private class A{
                int a;
                public void calk(int c){
-                  int a = await func(c);
+                int a;
+                a = await func(c);
+                int w = await func(d);
+                int g = w;
                }
                async public int func(int b){
                    int a = b;
