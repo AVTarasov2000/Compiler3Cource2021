@@ -80,9 +80,13 @@ def main() -> None:
     String a = 0, b = a, c;
     }'''
     test = '''private class A{
-               int a;
+               int z, zer, zty, zuyi;
                public void calk(int c){
-               a = await func(c);
+                int a;
+                a = await func(c);
+                int w = await func(d);
+                w = c + w;
+                int g = w;
                }
                async public int func(int b){
                    int a = b;

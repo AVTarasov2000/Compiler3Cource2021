@@ -173,6 +173,7 @@ class AccessNode(IdentNode):
         if self.type is None:
             self.semantic_error('Неизвестный тип {}'.format(self.name))
 
+
 #
 # class AwaitCallNode(ExprNode):
 #     def __init__(self, await_: AccessNode,  expr: ExprNode,
@@ -235,7 +236,6 @@ class BinOpNode(ExprNode):
         ))
 
 
-
 class CallNode(ExprNode):
     """Класс для представления в AST-дереве вызова функций
        (в языке программирования может быть как expression, так и statement)
@@ -244,7 +244,6 @@ class CallNode(ExprNode):
     def __init__(self, func: IdentNode, *params: ExprNode,
                  row: Optional[int] = None, col: Optional[int] = None, **props) -> None:
         super().__init__(row=row, col=col, **props)
-        # self.await_ = await_ ||await_: AccessNode
         self.func = func
         self.params = params
 
@@ -298,7 +297,7 @@ class CallerNode(ExprNode):
        (в языке программирования может быть как expression, так и statement)
     """
 
-    def __init__(self,call: CallNode, expr: ExprNode,
+    def __init__(self, call: CallNode, expr: ExprNode,
                  row: Optional[int] = None, col: Optional[int] = None, **props) -> None:
         super().__init__(row=row, col=col, **props)
         self.call = call
@@ -310,6 +309,7 @@ class CallerNode(ExprNode):
     @property
     def childs(self) -> Tuple[AstNode, ...]:
         return _GroupNode(str(self.call)), self.expr
+
 
 class TypeConvertNode(ExprNode):
     """Класс для представления в AST-дереве операций конвертации типов данных
@@ -539,7 +539,8 @@ class FuncNode(StmtNode):
     """Класс для представления в AST-дереве объявления функции
     """
 
-    def __init__(self, async_: AccessNode, access: AccessNode, static: AccessNode, type_: TypeNode, name: IdentNode, params: Tuple[ParamNode], body: Optional[StmtNode] = None,
+    def __init__(self, async_: AccessNode, access: AccessNode, static: AccessNode, type_: TypeNode, name: IdentNode,
+                 params: Tuple[ParamNode], body: Optional[StmtNode] = None,
                  row: Optional[int] = None, col: Optional[int] = None, **props) -> None:
         super().__init__(row=row, col=col, **props)
         self.async_ = async_
@@ -613,6 +614,7 @@ class StmtListNode(StmtNode):
         for expr in self.exprs:
             expr.semantic_check(scope)
         self.node_type = TypeDesc.VOID
+
 
 class FuncStmtListNode(StmtNode):
     """Класс для представления в AST-дереве последовательности инструкций
