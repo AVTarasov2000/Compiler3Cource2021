@@ -715,6 +715,11 @@ class ClassInitNode(StmtNode):
     def __str__(self) -> str:
         return 'class'
 
+    def to_jpp_code(self):
+        lines = self.body.to_jpp_code().split('\n')
+        body = '   ' + '\n   '.join(line for line in lines)
+        return f"{self.access} class {self.name} {{\n{body}}}"
+
     @property
     def childs(self) -> Tuple[AstNode, ...]:
         return _GroupNode(str(self.access), self.name), self.body

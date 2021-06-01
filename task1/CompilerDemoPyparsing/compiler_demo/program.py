@@ -93,7 +93,7 @@ def execute(prog: str) -> None:
     print()
     print('semantic_check:')
     print(*[x.to_async_string() + "\n" for x in replacemant_list if x.__class__.__name__ == FuncInitLog.__name__])
-    print(to_jpp_code(prog))
+    print(prog.to_jpp_code())
 
     # try:
     #     scope = semantic.prepare_global_scope()
