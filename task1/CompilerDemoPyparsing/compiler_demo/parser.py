@@ -62,18 +62,19 @@ def make_parser():
     class_call = ident + pp.OneOrMore('.' + (call | ident))
 
     group = (
-        literal |
-        call |  # обязательно перед ident, т.к. приоритетный выбор (или использовать оператор ^ вместо | )
-        class_call |
-        ident |
-        LPAR + expr + RPAR
+            literal |
+            call |  # обязательно перед ident, т.к. приоритетный выбор (или использовать оператор ^ вместо | )
+            class_call |
+            ident |
+            LPAR + expr + RPAR
     )
 
     # обязательно везде pp.Group, иначе приоритет операций не будет работать (см. реализцию set_parse_action_magic);
     # также можно воспользоваться pp.operatorPrecedence (должно быть проще, но не проверял)
     mult = pp.Group(group + pp.ZeroOrMore((MUL | DIV | MOD) + group)).setName('bin_op')
     add << pp.Group(mult + pp.ZeroOrMore((ADD | SUB) + mult)).setName('bin_op')
-    compare1 = pp.Group(add + pp.Optional((GE | LE | GT | LT) + add)).setName('bin_op')  # GE и LE первыми, т.к. приоритетный выбор
+    compare1 = pp.Group(add + pp.Optional((GE | LE | GT | LT) + add)).setName(
+        'bin_op')  # GE и LE первыми, т.к. приоритетный выбор
     compare2 = pp.Group(compare1 + pp.Optional((EQUALS | NEQUALS) + compare1)).setName('bin_op')
     logical_and = pp.Group(compare2 + pp.ZeroOrMore(AND + compare2)).setName('bin_op')
     logical_or = pp.Group(logical_and + pp.ZeroOrMore(OR + logical_and)).setName('bin_op')
@@ -102,15 +103,15 @@ def make_parser():
     func = type_ + ident + LPAR + params + RPAR + LBRACE + stmt_list + RBRACE
 
     stmt << (
-        if_ |
-        for_ |
-        return_ |
-        simple_stmt + SEMI |
-        # обязательно ниже if, for и т.п., иначе считает их за типы данных (сейчас уже не считает - см. грамматику)
-        # обязательно выше vars, иначе посчитает за два vars
-        vars_ + SEMI |
-        composite |
-        func
+            if_ |
+            for_ |
+            return_ |
+            simple_stmt + SEMI |
+            # обязательно ниже if, for и т.п., иначе считает их за типы данных (сейчас уже не считает - см. грамматику)
+            # обязательно выше vars, иначе посчитает за два vars
+            vars_ + SEMI |
+            composite |
+            func
     )
 
     cls = type_ + CLASS.suppress() + ident + LBRACE + stmt + RBRACE
@@ -126,7 +127,7 @@ def make_parser():
             return
         if getattr(parser_element, 'name', None) and parser_element.name.isidentifier():
             rule_name = parser_element.name
-        if rule_name in ('bin_op', ):
+        if rule_name in ('bin_op',):
             def bin_op_parse_action(s, loc, tocs):
                 node = tocs[0]
                 if not isinstance(node, AstNode):
@@ -137,6 +138,7 @@ def make_parser():
                         second_node = bin_op_parse_action(s, loc, second_node)
                     node = BinOpNode(BinOp(tocs[i]), node, second_node, loc=loc)
                 return node
+
             parser_element.setParseAction(bin_op_parse_action)
         else:
             cls = ''.join(x.capitalize() for x in rule_name.split('_')) + 'Node'
@@ -148,6 +150,7 @@ def make_parser():
                             return FuncNode(tocs[0], tocs[1], tocs[2:-1], tocs[-1], loc=loc)
                         else:
                             return cls(*tocs, loc=loc)
+
                     parser_element.setParseAction(parse_action)
 
     for var_name, value in locals().copy().items():
@@ -155,7 +158,6 @@ def make_parser():
             set_parse_action_magic(var_name, value)
 
     return start
-
 
 parser = make_parser()
 

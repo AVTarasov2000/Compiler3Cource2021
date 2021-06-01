@@ -94,6 +94,7 @@ def make_parser():
             STATIC | pp.Group(pp.Empty())) + type_ + ident + LPAR + params + RPAR
 
     func = func_struct + func_body
+    return_ = RETURN.suppress() + expr
 
     stmt << (
             class_init
@@ -109,6 +110,7 @@ def make_parser():
             | caller + SEMI
             | body
             | assign + SEMI
+            | return_ + SEMI
     )
 
     stmt_list = pp.ZeroOrMore(stmt)
