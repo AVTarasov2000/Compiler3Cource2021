@@ -333,6 +333,12 @@ class CallerNode(ExprNode):
         else:
             return f"{self.childs[1].to_jpp_code()}"
 
+    def is_await(self):
+        if self.childs[1].__class__.__name__ == CallNode.__name__:
+            return True
+        else:
+            return False
+
 
     @property
     def childs(self) -> Tuple[AstNode, ...]:
@@ -393,6 +399,9 @@ class StmtNode(ExprNode, ABC):
     def to_jpp_code(self):
         return ""
 
+    def await_list_check(self):
+        return []
+
 
 class FuncStmtNode(ExprNode, ABC):
     """Абстракный класс для деклараций или инструкций в AST-дереве
@@ -417,6 +426,12 @@ class AssignNode(ExprNode):
 
     def to_jpp_code(self) -> str:
         return f"{self.childs[0].name} = {self.childs[1].to_jpp_code()}"
+
+    def await_list_check(self):
+        if(self.childs[1].is_await()):
+            return [self.childs[0].name]
+        else:
+            return []
 
     @property
     def childs(self) -> Tuple[IdentNode, ExprNode]:
@@ -504,6 +519,11 @@ class IfNode(StmtNode):
     def __str__(self) -> str:
         return 'if'
 
+    def to_jpp_code(self):
+        then = '   ' + '\n   '.join(self.then_stmt.to_jpp_code().split('\n'))
+        else_ = '   ' + '\n   '.join(self.else_stmt.to_jpp_code().split('\n'))
+        return f"if ({self.cond.to_jpp_code()}){{\n{then}\n}}\nelse{{\n{else_}\n}}"
+
     @property
     def childs(self) -> Tuple[ExprNode, StmtNode, Optional[StmtNode]]:
         return (self.cond, self.then_stmt, *((self.else_stmt,) if self.else_stmt else tuple()))
@@ -547,6 +567,10 @@ class ForNode(StmtNode):
         self.step.semantic_check(scope)
         self.body.semantic_check(IdentScope(scope))
         self.node_type = TypeDesc.VOID
+
+    def to_jpp_code(self):
+        body = '   ' + '\n   '.join(self.body.to_jpp_code().split('\n'))
+        return f"for ({self.init.to_jpp_code()};{self.cond.to_jpp_code()};{self.step.to_jpp_code()}){{\n{body}\n}}"
 
 
 class ParamNode(StmtNode):
@@ -603,6 +627,9 @@ class FuncNode(StmtNode):
             params = ', '.join(f"{i.type.name} {i.name.name}" for i in self.params)
             return f"{self.access} {self.type} {self.name} ({params}) {{\n{self.body.to_jpp_code()}\n}}\n"
 
+    def await_list_check(self):
+        return self.body.await_list_check()
+
     @property
     def childs(self) -> Tuple[AstNode, ...]:
         return _GroupNode(str(self.async_),
@@ -649,6 +676,7 @@ class StmtListNode(StmtNode):
         super().__init__(row=row, col=col, **props)
         self.exprs = exprs
         self.program = False
+        self.await_list = []
 
     def __str__(self) -> str:
         return '...'
@@ -657,6 +685,7 @@ class StmtListNode(StmtNode):
     def childs(self) -> Tuple[StmtNode, ...]:
         return self.exprs
 
+
     def semantic_check(self, scope: IdentScope) -> None:
         if not self.program:
             scope = IdentScope(scope)
@@ -664,9 +693,15 @@ class StmtListNode(StmtNode):
             expr.semantic_check(scope)
         self.node_type = TypeDesc.VOID
 
-    def to_jpp_code(self):
-        return "\n".join(x.to_jpp_code() for x in self.childs)
+    def await_list_check(self):
+        result = []
+        for x in self.childs:
+            result.extend(x.await_list_check())
+        self.await_list = result
 
+    def to_jpp_code(self):
+        self.await_list_check()
+        return "\n".join(x.to_jpp_code() for x in self.childs)
 
 class FuncStmtListNode(StmtNode):
     """Класс для представления в AST-дереве последовательности инструкций
@@ -685,9 +720,16 @@ class FuncStmtListNode(StmtNode):
         body = '   ' + ';\n   '.join(f"{x.to_jpp_code()}" for x in self.exprs) + ";"
         return body
 
+    def await_list_check(self):
+        result = []
+        for x in self.exprs:
+            result.extend(x.await_list_check())
+        return result
+
     @property
     def childs(self) -> Tuple[StmtNode, ...]:
         return self.exprs
+
 
     def semantic_check(self, scope: IdentScope) -> None:
         if not self.program:

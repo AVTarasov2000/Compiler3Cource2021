@@ -95,6 +95,15 @@ def make_parser():
 
     func = func_struct + func_body
     return_ = RETURN.suppress() + expr
+    if_ = IF.suppress() + LPAR + expr + RPAR + func_body + \
+          pp.ZeroOrMore(pp.Keyword("else if").suppress() + func_body) + \
+          pp.Optional(pp.Keyword("else").suppress() + func_body)
+    simple_stmt = assign | call
+    for_stmt_list0 = (pp.Optional(simple_stmt + pp.ZeroOrMore(COMMA + simple_stmt))).setName('stmt_list')
+    for_stmt_list = vars_ | for_stmt_list0
+    for_cond = expr | pp.Group(pp.empty).setName('stmt_list')
+    for_body = stmt | pp.Group(SEMI).setName('stmt_list')
+    for_ = FOR.suppress() + LPAR + for_stmt_list + SEMI + for_cond + SEMI + for_stmt_list + RPAR + func_body
 
     stmt << (
             class_init
@@ -111,6 +120,8 @@ def make_parser():
             | body
             | assign + SEMI
             | return_ + SEMI
+            | if_
+            | for_
     )
 
     stmt_list = pp.ZeroOrMore(stmt)
