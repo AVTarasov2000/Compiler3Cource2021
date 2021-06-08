@@ -74,9 +74,9 @@ def get_log_map(prog):
         #         result_list.append(VarInitLog(str(curr_element.type), curr_element.vars[0].var.name, curr_element.col,
         #                          curr_element.row))
         #
-        # curr_element_childs = curr_element.childs
-        # if curr_element_childs is not None and len(curr_element_childs) != 0:
-        #     satck.extend(curr_element.childs)
+        curr_element_childs = curr_element.childs
+        if curr_element_childs is not None and len(curr_element_childs) != 0:
+            satck.extend(curr_element.childs)
     return result_list
 
 def to_jpp_code(prog)-> str:

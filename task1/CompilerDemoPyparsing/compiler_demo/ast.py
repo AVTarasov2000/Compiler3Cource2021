@@ -79,7 +79,7 @@ class _GroupNode(AstNode):
     def childs(self) -> Tuple['AstNode', ...]:
         return self._childs
 
-    def to_jpp_code(self):
+    def to_jpp_code(self, *args):
         return ""
 
 
@@ -87,7 +87,7 @@ class ExprNode(AstNode, ABC):
     """Абстракный класс для выражений в AST-дереве
     """
 
-    def to_jpp_code(self):
+    def to_jpp_code(self, *args):
         return ""
 
 
@@ -140,7 +140,9 @@ class IdentNode(ExprNode):
         self.node_type = ident.type
         self.node_ident = ident
 
-    def to_jpp_code(self) -> str:
+    def to_jpp_code(self, *args) -> str:
+        if args and self.name in args[0]:
+            return f"{self.name}.value()"
         return f"{self.name}"
 
 
@@ -163,7 +165,7 @@ class TypeNode(IdentNode):
         if self.type is None:
             self.semantic_error('Неизвестный тип {}'.format(self.name))
 
-    def to_jpp_code(self) -> str:
+    def to_jpp_code(self, *args) -> str:
         return f"{self.name}"
 
 class AccessNode(IdentNode):
@@ -182,7 +184,7 @@ class AccessNode(IdentNode):
         if self.type is None:
             self.semantic_error('Неизвестный тип {}'.format(self.name))
 
-    def to_jpp_code(self) -> str:
+    def to_jpp_code(self, *args) -> str:
         return f"{self.name}"
 
 
@@ -213,7 +215,9 @@ class BinOpNode(ExprNode):
     def __str__(self) -> str:
         return str(self.op.value)
 
-    def to_jpp_code(self) -> str:
+    def to_jpp_code(self, *args) -> str:
+        if args:
+            return f"{self.arg1.to_jpp_code(args[0])}{self.op.value}{self.arg2.to_jpp_code(args[0])}"
         return f"{self.arg1.to_jpp_code()}{self.op.value}{self.arg2.to_jpp_code()}"
 
     @property
@@ -265,7 +269,10 @@ class CallNode(ExprNode):
     def __str__(self) -> str:
         return 'call'
 
-    def to_jpp_code(self) -> str:
+    def to_jpp_code(self, *args) -> str:
+        if args:
+            params = ", ".join(x.to_jpp_code(args[0]) for x in self.childs[1].childs)
+            return f"{self.childs[0].to_jpp_code(args[0])}({params})"
         params = ", ".join(x.to_jpp_code() for x in self.childs[1].childs)
         return f"{self.childs[0].to_jpp_code()}({params})"
 
@@ -325,13 +332,23 @@ class CallerNode(ExprNode):
     def __str__(self) -> str:
         return 'caller'
 
-    def to_jpp_code(self) -> str:
+    def to_jpp_code(self, *args) -> str:
+        # if isinstance(self.childs)
         if self.childs[1].__class__.__name__ == CallNode.__name__:
-            line = [x.to_jpp_code() for x in self.childs[1].childs[1].childs]
-            params = ", ".join(f"\"{x}\"" for x in self.childs[1].childs[1].childs)
+            if args:
+                line = [x.childs[1].name for x in self.childs[1].childs[1].childs]
+                params = ", ".join(f"\"{x}.value\"" if x in args[0] else f"\"{x}\"" for x in line)
+            else:
+                line = [x.to_jpp_code() for x in self.childs[1].childs[1].childs]
+                params = ", ".join(f"\"{x}\"" for x in line)
+
             return f"AsyncLib.async(\"{self.childs[1].childs[0].name}\", this, new Object[]({params}))"
         else:
-            return f"{self.childs[1].to_jpp_code()}"
+            if args:
+                return f"{self.childs[1].to_jpp_code(args[0])}"
+            else:
+                return f"{self.childs[1].to_jpp_code()}"
+
 
     def is_await(self):
         if self.childs[1].__class__.__name__ == CallNode.__name__:
@@ -396,7 +413,7 @@ class StmtNode(ExprNode, ABC):
     def to_str_full(self):
         return self.to_str()
 
-    def to_jpp_code(self):
+    def to_jpp_code(self, *args):
         return ""
 
     def await_list_check(self):
@@ -424,7 +441,9 @@ class AssignNode(ExprNode):
     def __str__(self) -> str:
         return '='
 
-    def to_jpp_code(self) -> str:
+    def to_jpp_code(self, *args) -> str:
+        if args:
+            return f"{self.childs[0].name} = {self.childs[1].to_jpp_code(args[0])}"
         return f"{self.childs[0].name} = {self.childs[1].to_jpp_code()}"
 
     def await_list_check(self):
@@ -457,9 +476,38 @@ class VarsNode(StmtNode):
     def __str__(self) -> str:
         return str(self.type)
 
-    def to_jpp_code(self) -> str:
-        body = ", ".join(x.to_jpp_code() for x in self.childs)
+    def _one_of(self, args):
+        for child in self.childs:
+            if child.__class__.__name__ == AssignNode.__name__:
+                if child.childs[1].__class__.__name__ == CallerNode.__name__ and child.childs[1].is_await():
+                    return True
+            elif child.__class__.__name__ == VarsNode.__name__:
+                for as_child in child.childs:
+                   if as_child.name in args:
+                       return True
+            elif child.name in args:
+                return True
+        return False
+
+
+    def to_jpp_code(self, *args) -> str:
+        if args and self._one_of(args[0]):
+
+            body = ", ".join(x.to_jpp_code(args[0]) if isinstance(x, AssignNode) else x.name for x in self.childs)
+
+            return f"Valuable<{self.type.name}> {body}"
+        else:
+            body = ", ".join(x.to_jpp_code() for x in self.childs)
         return f"{self.type.name} {body}"
+
+    def await_list_check(self):
+        result = []
+        for i in self.childs:
+            if i.__class__.__name__ == AssignNode.__name__:
+                result.extend(i.await_list_check())
+        return result
+
+
 
     @property
     def childs(self) -> Tuple[AstNode, ...]:
@@ -489,7 +537,9 @@ class ReturnNode(StmtNode):
     def __str__(self) -> str:
         return 'return'
 
-    def to_jpp_code(self):
+    def to_jpp_code(self, *args):
+        if args:
+            return f"return {self.val.to_jpp_code(args[0])}"
         return f"return {self.val.to_jpp_code()}"
 
     @property
@@ -519,7 +569,11 @@ class IfNode(StmtNode):
     def __str__(self) -> str:
         return 'if'
 
-    def to_jpp_code(self):
+    def to_jpp_code(self, *args):
+        if args:
+            then = '   ' + '\n   '.join(self.then_stmt.to_jpp_code(args[0]).split('\n'))
+            else_ = '   ' + '\n   '.join(self.else_stmt.to_jpp_code(args[0]).split('\n'))
+            return f"if ({self.cond.to_jpp_code(args[0])}){{\n{then}\n}}\nelse{{\n{else_}\n}}"
         then = '   ' + '\n   '.join(self.then_stmt.to_jpp_code().split('\n'))
         else_ = '   ' + '\n   '.join(self.else_stmt.to_jpp_code().split('\n'))
         return f"if ({self.cond.to_jpp_code()}){{\n{then}\n}}\nelse{{\n{else_}\n}}"
@@ -568,7 +622,10 @@ class ForNode(StmtNode):
         self.body.semantic_check(IdentScope(scope))
         self.node_type = TypeDesc.VOID
 
-    def to_jpp_code(self):
+    def to_jpp_code(self, *args):
+        if args:
+            body = '   ' + '\n   '.join(self.body.to_jpp_code(args[0]).split('\n'))
+            return f"for ({self.init.to_jpp_code(args[0])};{self.cond.to_jpp_code(args[0])};{self.step.to_jpp_code(args[0])}){{\n{body}\n}}"
         body = '   ' + '\n   '.join(self.body.to_jpp_code().split('\n'))
         return f"for ({self.init.to_jpp_code()};{self.cond.to_jpp_code()};{self.step.to_jpp_code()}){{\n{body}\n}}"
 
@@ -619,16 +676,24 @@ class FuncNode(StmtNode):
     def __str__(self) -> str:
         return 'function'
 
-    def to_jpp_code(self) -> str:
-        if(self.async_ == "async"):
+    def to_jpp_code(self, *args) -> str:
+        if self.async_ == "async":
             params = ', '.join(f"Valuable<{i.type.name}> {i.name.name}" for i in self.params)
+            if args:
+                return f"{self.access} Valuable<{self.type}> {self.name} ({params}) {{\n{self.body.to_jpp_code(args[0])} \n}}\n"
             return f"{self.access} Valuable<{self.type}> {self.name} ({params}) {{\n{self.body.to_jpp_code()} \n}}\n"
         else:
             params = ', '.join(f"{i.type.name} {i.name.name}" for i in self.params)
+            if args:
+                return f"{self.access} {self.type} {self.name} ({params}) {{\n{self.body.to_jpp_code(args[0])}\n}}\n"
             return f"{self.access} {self.type} {self.name} ({params}) {{\n{self.body.to_jpp_code()}\n}}\n"
 
     def await_list_check(self):
-        return self.body.await_list_check()
+        result = []
+        if self.async_ == "async":
+            result.extend([x.name.name for x in self.params])
+        result.extend(self.body.await_list_check())
+        return result
 
     @property
     def childs(self) -> Tuple[AstNode, ...]:
@@ -699,9 +764,11 @@ class StmtListNode(StmtNode):
             result.extend(x.await_list_check())
         self.await_list = result
 
-    def to_jpp_code(self):
+    def to_jpp_code(self, *args):
         self.await_list_check()
-        return "\n".join(x.to_jpp_code() for x in self.childs)
+        if args:
+            self.await_list.extend(args[0])
+        return "\n".join(x.to_jpp_code(self.await_list) for x in self.childs)
 
 class FuncStmtListNode(StmtNode):
     """Класс для представления в AST-дереве последовательности инструкций
@@ -716,8 +783,11 @@ class FuncStmtListNode(StmtNode):
     def __str__(self) -> str:
         return '...'
 
-    def to_jpp_code(self) -> str:
-        body = '   ' + ';\n   '.join(f"{x.to_jpp_code()}" for x in self.exprs) + ";"
+    def to_jpp_code(self, *args) -> str:
+        if args:
+            body = '   ' + ';\n   '.join(f"{x.to_jpp_code(args[0])}" for x in self.exprs) + ";"
+        else:
+            body = '   ' + ';\n   '.join(f"{x.to_jpp_code()}" for x in self.exprs) + ";"
         return body
 
     def await_list_check(self):
@@ -757,8 +827,12 @@ class ClassInitNode(StmtNode):
     def __str__(self) -> str:
         return 'class'
 
-    def to_jpp_code(self):
-        lines = self.body.to_jpp_code().split('\n')
+    def to_jpp_code(self, *args):
+        if args:
+            lines = self.body.to_jpp_code(args[0]).split('\n')
+
+        else:
+            lines = self.body.to_jpp_code().split('\n')
         body = '   ' + '\n   '.join(line for line in lines)
         return f"{self.access} class {self.name} {{\n{body}}}"
 
