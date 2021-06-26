@@ -40,6 +40,8 @@ def make_parser():
     ASYNC = pp.Literal('async')
     AWAIT = pp.Literal('await')
 
+    TRY = pp.Keyword('try')
+    CATCH = pp.Keyword('catch')
     IF = pp.Keyword('if')
     FOR = pp.Keyword('for')
     RETURN = pp.Keyword('return')
@@ -110,6 +112,9 @@ def make_parser():
     for_body = stmt | pp.Group(SEMI).setName('stmt_list')
     for_ = FOR.suppress() + LPAR + for_stmt_list + SEMI + for_cond + SEMI + for_stmt_list + RPAR + func_body
 
+    try_ = TRY.suppress() + func_body
+    catch_ = CATCH.suppress() + LPAR + vars_ + RPAR + func_body
+
     stmt << (
             class_init
             | func
@@ -128,6 +133,8 @@ def make_parser():
             | return_ + SEMI
             | if_
             | for_
+            | try_
+            | catch_
     )
 
     stmt_list = pp.ZeroOrMore(stmt)

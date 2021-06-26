@@ -84,8 +84,17 @@ def main() -> None:
                 int a;
                 a = await func(c, n, d);
                 int w = await func(d, g. h);
+                int x = new D();
                }
                async public Integer func(Integer b){
+                    for(int i = 0; i<10; i+=1){
+                    INT S = 0;
+                    }
+                    try{
+                    INT S = 0;
+                    } catch(Exeption e){
+                    INT S = 0;
+                    }
                    int a = b.a();
                    int www = b;
                    return b;

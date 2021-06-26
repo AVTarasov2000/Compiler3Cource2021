@@ -601,6 +601,52 @@ class ForNode(StmtNode):
         return f"for ({self.init.to_jpp_code()};{self.cond.to_jpp_code()};{self.step.to_jpp_code()}){{\n{body}\n}}"
 
 
+
+class TryNode(StmtNode):
+    """Класс для представления в AST-дереве цикла for
+    """
+
+    def __init__(self, body: Optional[StmtNode],
+                 row: Optional[int] = None, col: Optional[int] = None, **props) -> None:
+        super().__init__(row=row, col=col, **props)
+        self.body = body if body else EMPTY_STMT
+
+    def __str__(self) -> str:
+        return 'try'
+
+    @property
+    def childs(self) -> Tuple[AstNode, ...]:
+        return [self.body]
+
+
+    def to_jpp_code(self):
+        body = '   ' + '\n   '.join(self.body.to_jpp_code().split('\n'))
+        return f"try{{\n{body}\n}}"
+
+class CatchNode(StmtNode):
+    """Класс для представления в AST-дереве цикла for
+    """
+
+    def __init__(self, var: VarsNode, body: Optional[StmtNode],
+                 row: Optional[int] = None, col: Optional[int] = None, **props) -> None:
+        super().__init__(row=row, col=col, **props)
+        self.var = var
+        self.body = body if body else EMPTY_STMT
+
+    def __str__(self) -> str:
+        return 'catch'
+
+    @property
+    def childs(self) -> Tuple[AstNode, ...]:
+        return self.var, self.body
+
+
+    def to_jpp_code(self):
+        body = '   ' + '\n   '.join(self.body.to_jpp_code().split('\n'))
+        return f"catch ({self.var.to_jpp_code()}){{\n{body}\n}}"
+
+
+
 class ParamNode(StmtNode):
     """Класс для представления в AST-дереве объявления параметра функции
     """
