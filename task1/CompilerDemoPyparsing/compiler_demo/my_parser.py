@@ -42,6 +42,7 @@ def make_parser():
     IF = pp.Keyword('if')
     FOR = pp.Keyword('for')
     RETURN = pp.Keyword('return')
+    NEW = pp.Keyword('new')
     keywords = IF | FOR | RETURN
 
     num = pp.Regex('[+-]?\\d+\\.?\\d*([eE][+-]?\\d+)?')
@@ -64,8 +65,10 @@ def make_parser():
     assign = pp.Forward()
     dot = pp.Forward()
     caller = pp.Forward()
+    new = pp.Forward
 
     call = ident + LPAR + pp.Optional(caller + pp.ZeroOrMore(COMMA + caller)) + RPAR
+    new = NEW.suppress() + call
 
     assign = ident + ASSIGN.suppress() + caller
     var_inner = assign | ident
@@ -77,7 +80,7 @@ def make_parser():
             LPAR + caller + RPAR
     )
 
-    dot << pp.Group((call | ident) + pp.ZeroOrMore(DOT + (call | ident))).setName(
+    dot << pp.Group((new | call | ident) + pp.ZeroOrMore(DOT + (new | call | ident))).setName(
         'bin_op')  # обязательно call перед ident, т.к. приоритетный выбор (или использовать оператор ^ вместо | )
     mult = pp.Group(group + pp.ZeroOrMore((MUL | DIV | MOD) + group)).setName('bin_op')
     add << pp.Group(mult + pp.ZeroOrMore((ADD | SUB) + mult)).setName('bin_op')
@@ -98,7 +101,7 @@ def make_parser():
     if_ = IF.suppress() + LPAR + expr + RPAR + func_body + \
           pp.ZeroOrMore(pp.Keyword("else if").suppress() + func_body) + \
           pp.Optional(pp.Keyword("else").suppress() + func_body)
-    simple_stmt = assign | call
+    simple_stmt = new | assign | call
     for_stmt_list0 = (pp.Optional(simple_stmt + pp.ZeroOrMore(COMMA + simple_stmt))).setName('stmt_list')
     for_stmt_list = vars_ | for_stmt_list0
     for_cond = expr | pp.Group(pp.empty).setName('stmt_list')
@@ -116,6 +119,7 @@ def make_parser():
             func_class_init
             | vars_ + SEMI
             | call + SEMI
+            | new + SEMI
             | caller + SEMI
             | body
             | assign + SEMI

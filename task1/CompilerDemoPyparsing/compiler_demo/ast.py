@@ -477,6 +477,34 @@ class VarsNode(StmtNode):
         self.node_type = TypeDesc.VOID
 
 
+class NewNode(StmtNode):
+    """Класс для представления в AST-дереве оператора return
+    """
+
+    def __init__(self, val: CallNode,
+                 row: Optional[int] = None, col: Optional[int] = None, **props) -> None:
+        super().__init__(row=row, col=col, **props)
+        self.val = val
+
+    def __str__(self) -> str:
+        return 'new '
+
+    def to_jpp_code(self):
+        return f" new {self.val.to_jpp_code()}"
+
+    @property
+    def childs(self) -> Tuple[ExprNode]:
+        return (self.val,)
+
+    def semantic_check(self, scope: IdentScope) -> None:
+        self.val.semantic_check(IdentScope(scope))
+        func = scope.curr_func
+        if func is None:
+            self.semantic_error('Оператор return применим только к функции')
+        self.val = type_convert(self.val, func.func.type.return_type, self, 'возвращаемое значение')
+        self.node_type = TypeDesc.VOID
+
+
 class ReturnNode(StmtNode):
     """Класс для представления в AST-дереве оператора return
     """
