@@ -79,19 +79,44 @@ def main() -> None:
     int a = 0, b = a, c;
     String a = 0, b = a, c;
     }'''
-    test = '''private class A{
-   public void calk(Integer c){
-    int a;
-    a = await func(c, n, d);
-    int w = await func(d, g, h);
-    c = c+a;
-    c = w;
-   }
-   async public Integer func(Integer b){
-       int a = b.a();
-       int www = b + a;
-       return b;
-   }
+
+    # int g;
+    #  public void calk(Integer c){
+    #     int a;
+    #     a = await func(c, n, d);
+    #     int w = await func(d, g, h);
+    #     c = a;
+    #     return c;
+    #    }
+    # for (int i; i < a; i++){
+    #      int a = i;
+    # }
+    test = '''public class Test {
+    public static void main() {
+        Date date = Date();
+        String str = "Hello";
+        StringBuilder sb = StringBuilder();
+    
+        Integer i = await test(Factorial());
+        await sb.toString();
+        System.out.println(i);
+        System.out.println(Date().getTime() - date.getTime());
+    }
+
+    async public static void test(String x){
+        System.out.println(x);
+    }
+
+    async public static Integer Factorial()
+    {
+        int result = 1;
+        for(int i = 1; i <= 9; i = i + 1)
+        {
+            result = result * i;
+        }
+
+        return result;
+    }
 }'''
 
     program.execute(test)
