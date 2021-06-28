@@ -23,6 +23,7 @@ def make_parser():
     BIT_OR = pp.Literal('|')
     GE, LE, GT, LT = pp.Literal('>='), pp.Literal('<='), pp.Literal('>'), pp.Literal('<')
     NEQUALS, EQUALS = pp.Literal('!='), pp.Literal('==')
+    P_EQ, M_EQ, DEL_EQ, MUL_EQ = pp.Literal('+='), pp.Literal('-='), pp.Literal('/='), pp.Literal('*=')
 
     PRIVATE = pp.Literal('private')
     PROTECTED = pp.Literal('protected')
@@ -39,9 +40,12 @@ def make_parser():
     ASYNC = pp.Literal('async')
     AWAIT = pp.Literal('await')
 
+    TRY = pp.Keyword('try')
+    CATCH = pp.Keyword('catch')
     IF = pp.Keyword('if')
     FOR = pp.Keyword('for')
     RETURN = pp.Keyword('return')
+    NEW = pp.Keyword('new')
     keywords = IF | FOR | RETURN
 
     num = pp.Regex('[+-]?\\d+\\.?\\d*([eE][+-]?\\d+)?')
@@ -64,8 +68,10 @@ def make_parser():
     assign = pp.Forward()
     dot = pp.Forward()
     caller = pp.Forward()
+    new = pp.Forward()
 
     call = ident + LPAR + pp.Optional(caller + pp.ZeroOrMore(COMMA + caller)) + RPAR
+    new = NEW.suppress() + call
 
     assign = ident + ASSIGN.suppress() + caller
     var_inner = assign | ident
@@ -77,7 +83,7 @@ def make_parser():
             LPAR + caller + RPAR
     )
 
-    dot << pp.Group((call | ident) + pp.ZeroOrMore(DOT + (call | ident))).setName(
+    dot << pp.Group((new | call | ident) + pp.ZeroOrMore(DOT + (new | call | ident))).setName(
         'bin_op')  # обязательно call перед ident, т.к. приоритетный выбор (или использовать оператор ^ вместо | )
     mult = pp.Group(group + pp.ZeroOrMore((MUL | DIV | MOD) + group)).setName('bin_op')
     add << pp.Group(mult + pp.ZeroOrMore((ADD | SUB) + mult)).setName('bin_op')
@@ -85,7 +91,8 @@ def make_parser():
     compare2 = pp.Group(compare1 + pp.Optional((EQUALS | NEQUALS) + compare1)).setName('bin_op')
     logical_and = pp.Group(compare2 + pp.ZeroOrMore(AND + compare2)).setName('bin_op')
     logical_or = pp.Group(logical_and + pp.ZeroOrMore(OR + logical_and)).setName('bin_op')
-    expr << logical_or
+    op_assign = pp.Group(logical_or + pp.ZeroOrMore((MUL_EQ | DEL_EQ | P_EQ | M_EQ) + logical_or)).setName('bin_op')
+    expr << op_assign
 
     caller << (AWAIT | pp.Group(pp.Empty())) + expr
     param = type_ + ident
@@ -98,12 +105,15 @@ def make_parser():
     if_ = IF.suppress() + LPAR + expr + RPAR + func_body + \
           pp.ZeroOrMore(pp.Keyword("else if").suppress() + func_body) + \
           pp.Optional(pp.Keyword("else").suppress() + func_body)
-    simple_stmt = assign | call
+    simple_stmt = new | assign | call | expr
     for_stmt_list0 = (pp.Optional(simple_stmt + pp.ZeroOrMore(COMMA + simple_stmt))).setName('stmt_list')
     for_stmt_list = vars_ | for_stmt_list0
     for_cond = expr | pp.Group(pp.empty).setName('stmt_list')
     for_body = stmt | pp.Group(SEMI).setName('stmt_list')
     for_ = FOR.suppress() + LPAR + for_stmt_list + SEMI + for_cond + SEMI + for_stmt_list + RPAR + func_body
+
+    try_ = TRY.suppress() + func_body
+    catch_ = CATCH.suppress() + LPAR + vars_ + RPAR + func_body
 
     stmt << (
             class_init
@@ -116,12 +126,15 @@ def make_parser():
             func_class_init
             | vars_ + SEMI
             | call + SEMI
+            | new + SEMI
             | caller + SEMI
             | body
             | assign + SEMI
             | return_ + SEMI
             | if_
             | for_
+            | try_
+            | catch_
     )
 
     stmt_list = pp.ZeroOrMore(stmt)

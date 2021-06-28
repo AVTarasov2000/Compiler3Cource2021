@@ -6,6 +6,10 @@ from enum import Enum
 class BinOp(Enum):
     """Перечисление возможных биранных операций
     """
+    P_EQ = "+="
+    M_EQ = "-="
+    DEL_EQ = "/="
+    MUL_EQ = "*="
     DOT = '.'
     ADD = '+'
     SUB = '-'
