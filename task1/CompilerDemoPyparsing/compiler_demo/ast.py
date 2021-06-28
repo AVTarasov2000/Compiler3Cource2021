@@ -5,6 +5,9 @@ from typing import Optional, Union, Tuple, Callable
 from .semantic import TYPE_CONVERTIBILITY, BIN_OP_TYPE_COMPATIBILITY, BinOp, \
     TypeDesc, IdentDesc, ScopeType, IdentScope, SemanticException, AccessType
 
+TYPES = {"int": "Integer", "float": "Float", "double": "Double", "boolean": "Boolean", "short": "Short", "char": "Char",
+         "long": "Long", "byte": "Byte"}
+
 
 class AstNode(ABC):
     """Базовый абстрактый класс узла AST-дерева"""
@@ -21,6 +24,11 @@ class AstNode(ABC):
             AstNode.init_action(self)
         self.node_type: Optional[TypeDesc] = None
         self.node_ident: Optional[IdentDesc] = None
+        self.await_names = []
+        self.type_changing = []
+        self.is_async = False
+        self.external_await_names = []
+        self.external_type_changing = []
 
     @abstractmethod
     def __str__(self) -> str:
@@ -40,12 +48,6 @@ class AstNode(ABC):
         elif self.node_type:
             r = str(self.node_type)
         return self.to_str() + (' : ' + r if r else '')
-
-    def semantic_error(self, message: str):
-        raise SemanticException(message, self.row, self.col)
-
-    def semantic_check(self, scope: IdentScope) -> None:
-        pass
 
     @property
     def tree(self) -> [str, ...]:
@@ -79,7 +81,7 @@ class _GroupNode(AstNode):
     def childs(self) -> Tuple['AstNode', ...]:
         return self._childs
 
-    def to_jpp_code(self, *args):
+    def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing):
         return ""
 
 
@@ -87,7 +89,7 @@ class ExprNode(AstNode, ABC):
     """Абстракный класс для выражений в AST-дереве
     """
 
-    def to_jpp_code(self, *args):
+    def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing):
         return ""
 
 
@@ -107,18 +109,8 @@ class LiteralNode(ExprNode):
     def __str__(self) -> str:
         return self.literal
 
-    def semantic_check(self, scope: IdentScope) -> None:
-        if isinstance(self.value, bool):
-            self.node_type = TypeDesc.BOOL
-        # проверка должна быть позже bool, т.к. bool наследник от int
-        elif isinstance(self.value, int):
-            self.node_type = TypeDesc.INT
-        elif isinstance(self.value, float):
-            self.node_type = TypeDesc.FLOAT
-        elif isinstance(self.value, str):
-            self.node_type = TypeDesc.STR
-        else:
-            self.semantic_error('Неизвестный тип {} для {}'.format(type(self.value), self.value))
+    def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing):
+        return self.literal
 
 
 class IdentNode(ExprNode):
@@ -133,15 +125,8 @@ class IdentNode(ExprNode):
     def __str__(self) -> str:
         return str(self.name)
 
-    def semantic_check(self, scope: IdentScope) -> None:
-        ident = scope.get_ident(self.name)
-        if ident is None:
-            self.semantic_error('Идентификатор {} не найден'.format(self.name))
-        self.node_type = ident.type
-        self.node_ident = ident
-
-    def to_jpp_code(self, *args) -> str:
-        if args and self.name in args[0]:
+    def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing) -> str:
+        if args and self.name in await_names or self.name in type_changing:
             return f"{self.name}.value()"
         return f"{self.name}"
 
@@ -161,12 +146,9 @@ class TypeNode(IdentNode):
     def to_str_full(self):
         return self.to_str()
 
-    def semantic_check(self, scope: IdentScope) -> None:
-        if self.type is None:
-            self.semantic_error('Неизвестный тип {}'.format(self.name))
-
-    def to_jpp_code(self, *args) -> str:
+    def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing) -> str:
         return f"{self.name}"
+
 
 class AccessNode(IdentNode):
 
@@ -180,25 +162,8 @@ class AccessNode(IdentNode):
     def to_str_full(self):
         return self.to_str()
 
-    def semantic_check(self, scope: IdentScope) -> None:
-        if self.type is None:
-            self.semantic_error('Неизвестный тип {}'.format(self.name))
-
-    def to_jpp_code(self, *args) -> str:
+    def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing) -> str:
         return f"{self.name}"
-
-
-#
-# class AwaitCallNode(ExprNode):
-#     def __init__(self, await_: AccessNode,  expr: ExprNode,
-#                  row: Optional[int] = None, col: Optional[int] = None, **props) -> None:
-#         super().__init__(row=row, col=col, **props)
-#         self.await_ = await_ if await_ else empty_access
-#         self.expr = expr
-#
-#     @property
-#     def childs(self) -> Tuple[AstNode, ...]:
-#         return self.await_, self.expr
 
 
 class BinOpNode(ExprNode):
@@ -215,44 +180,15 @@ class BinOpNode(ExprNode):
     def __str__(self) -> str:
         return str(self.op.value)
 
-    def to_jpp_code(self, *args) -> str:
-        if args:
-            return f"{self.arg1.to_jpp_code(args[0])}{self.op.value}{self.arg2.to_jpp_code(args[0])}"
-        return f"{self.arg1.to_jpp_code()}{self.op.value}{self.arg2.to_jpp_code()}"
+    def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing) -> str:
+        return f"{self.arg1.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names)}{self.op.value}{self.arg2.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names)}"
+
+    def await_names_check(self, await_names, type_changing, is_async, external_await_names, external_types):
+        return [], []
 
     @property
     def childs(self) -> Tuple[ExprNode, ExprNode]:
         return self.arg1, self.arg2
-
-    def semantic_check(self, scope: IdentScope) -> None:
-        self.arg1.semantic_check(scope)
-        self.arg2.semantic_check(scope)
-
-        if self.arg1.node_type.is_simple or self.arg2.node_type.is_simple:
-            compatibility = BIN_OP_TYPE_COMPATIBILITY[self.op]
-            args_types = (self.arg1.node_type.base_type, self.arg2.node_type.base_type)
-            if args_types in compatibility:
-                self.node_type = TypeDesc.from_base_type(compatibility[args_types])
-                return
-
-            if self.arg2.node_type.base_type in TYPE_CONVERTIBILITY:
-                for arg2_type in TYPE_CONVERTIBILITY[self.arg2.node_type.base_type]:
-                    args_types = (self.arg1.node_type.base_type, arg2_type)
-                    if args_types in compatibility:
-                        self.arg2 = type_convert(self.arg2, TypeDesc.from_base_type(arg2_type))
-                        self.node_type = TypeDesc.from_base_type(compatibility[args_types])
-                        return
-            if self.arg1.node_type.base_type in TYPE_CONVERTIBILITY:
-                for arg1_type in TYPE_CONVERTIBILITY[self.arg1.node_type.base_type]:
-                    args_types = (arg1_type, self.arg2.node_type.base_type)
-                    if args_types in compatibility:
-                        self.arg1 = type_convert(self.arg1, TypeDesc.from_base_type(arg1_type))
-                        self.node_type = TypeDesc.from_base_type(compatibility[args_types])
-                        return
-
-        self.semantic_error("Оператор {} не применим к типам ({}, {})".format(
-            self.op, self.arg1.node_type, self.arg2.node_type
-        ))
 
 
 class CallNode(ExprNode):
@@ -269,53 +205,14 @@ class CallNode(ExprNode):
     def __str__(self) -> str:
         return 'call'
 
-    def to_jpp_code(self, *args) -> str:
-        if args:
-            params = ", ".join(x.to_jpp_code(args[0]) for x in self.childs[1].childs)
-            return f"{self.childs[0].to_jpp_code(args[0])}({params})"
-        params = ", ".join(x.to_jpp_code() for x in self.childs[1].childs)
-        return f"{self.childs[0].to_jpp_code()}({params})"
+    def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing) -> str:
+
+        params = ", ".join(x.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names) for x in self.childs[1].childs)
+        return f"{self.childs[0].to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names)}({params})"
 
     @property
     def childs(self) -> Tuple[AstNode, ...]:
         return self.func, _GroupNode('params', *self.params)
-
-    def semantic_check(self, scope: IdentScope) -> None:
-        func = scope.get_ident(self.func.name)
-        if func is None:
-            self.semantic_error('Функция {} не найдена'.format(self.func.name))
-        if not func.type.func:
-            self.semantic_error('Идентификатор {} не является функцией'.format(func.name))
-        if len(func.type.params) != len(self.params):
-            self.semantic_error('Кол-во аргументов {} не совпадает (ожидалось {}, передано {})'.format(
-                func.name, len(func.type.params), len(self.params)
-            ))
-        params = []
-        error = False
-        decl_params_str = fact_params_str = ''
-        for i in range(len(self.params)):
-            param: ExprNode = self.params[i]
-            param.semantic_check(scope)
-            if (len(decl_params_str) > 0):
-                decl_params_str += ', '
-            decl_params_str += str(func.type.params[i])
-            if (len(fact_params_str) > 0):
-                fact_params_str += ', '
-            fact_params_str += str(param.node_type)
-            try:
-                params.append(type_convert(param, func.type.params[i]))
-            except:
-                error = True
-        if error:
-            self.semantic_error('Фактические типы ({1}) аргументов функции {0} не совпадают с формальными ({2})\
-                                    и не приводимы'.format(
-                func.name, fact_params_str, decl_params_str
-            ))
-        else:
-            self.params = tuple(params)
-            self.func.node_type = func.type
-            self.func.node_ident = func
-            self.node_type = func.type.return_type
 
 
 class CallerNode(ExprNode):
@@ -332,34 +229,26 @@ class CallerNode(ExprNode):
     def __str__(self) -> str:
         return 'caller'
 
-    def to_jpp_code(self, *args) -> str:
-        # if isinstance(self.childs)
-        if self.childs[1].__class__.__name__ == CallNode.__name__:
-            if args:
-                line = [x.childs[1].name for x in self.childs[1].childs[1].childs]
-                params = ", ".join(f"\"{x}.value\"" if x in args[0] else f"\"{x}\"" for x in line)
-            else:
-                line = [x.to_jpp_code() for x in self.childs[1].childs[1].childs]
-                params = ", ".join(f"\"{x}\"" for x in line)
-
-            return f"AsyncLib.async(\"{self.childs[1].childs[0].name}\", this, new Object[]({params}))"
+    def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing) -> str:
+        if isinstance(self.childs[1], CallNode) and self.call == 'await':
+            line = [x.childs[1].name for x in self.childs[1].childs[1].childs]
+            params = ", ".join(f"{x}.value" if x in await_names else f"{x}" for x in line)
+            return f"AsyncLib.async(()->{self.childs[1].childs[0].name}({params}))"
         else:
-            if args:
-                return f"{self.childs[1].to_jpp_code(args[0])}"
-            else:
-                return f"{self.childs[1].to_jpp_code()}"
-
+            return f"{self.childs[1].to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names)}"
 
     def is_await(self):
-        if self.childs[1].__class__.__name__ == CallNode.__name__:
+        if isinstance(self.childs[1], CallNode) and self.childs[1].col == "await":
             return True
         else:
             return False
 
-
     @property
     def childs(self) -> Tuple[AstNode, ...]:
         return _GroupNode(str(self.call)), self.expr
+
+    def await_names_check(self):
+        return [], []
 
 
 class TypeConvertNode(ExprNode):
@@ -382,30 +271,6 @@ class TypeConvertNode(ExprNode):
         return (_GroupNode(str(self.type), self.expr),)
 
 
-def type_convert(expr: ExprNode, type_: TypeDesc, except_node: Optional[AstNode] = None,
-                 comment: Optional[str] = None) -> ExprNode:
-    """Метод преобразования ExprNode узла AST-дерева к другому типу
-    :param expr: узел AST-дерева
-    :param type_: требуемый тип
-    :param except_node: узел, о которого будет исключение
-    :param comment: комментарий
-    :return: узел AST-дерева c операцией преобразования
-    """
-
-    if expr.node_type is None:
-        except_node.semantic_error('Тип выражения не определен')
-    if expr.node_type == type_:
-        return expr
-    if expr.node_type.is_simple and type_.is_simple and \
-            expr.node_type.base_type in TYPE_CONVERTIBILITY and type_.base_type in TYPE_CONVERTIBILITY[
-        expr.node_type.base_type]:
-        return TypeConvertNode(expr, type_)
-    else:
-        (except_node if except_node else expr).semantic_error('Тип {0}{2} не конвертируется в {1}'.format(
-            expr.node_type, type_, ' ({})'.format(comment) if comment else ''
-        ))
-
-
 class StmtNode(ExprNode, ABC):
     """Абстракный класс для деклараций или инструкций в AST-дереве
     """
@@ -413,11 +278,11 @@ class StmtNode(ExprNode, ABC):
     def to_str_full(self):
         return self.to_str()
 
-    def to_jpp_code(self, *args):
+    def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing):
         return ""
 
-    def await_list_check(self):
-        return []
+    def await_names_check(self):
+        return [], []
 
 
 class FuncStmtNode(ExprNode, ABC):
@@ -441,26 +306,24 @@ class AssignNode(ExprNode):
     def __str__(self) -> str:
         return '='
 
-    def to_jpp_code(self, *args) -> str:
-        if args:
-            return f"{self.childs[0].name} = {self.childs[1].to_jpp_code(args[0])}"
-        return f"{self.childs[0].name} = {self.childs[1].to_jpp_code()}"
+    def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing) -> str:
+        self.await_names = await_names
+        self.type_changing = type_changing
+        self.is_async = is_async
+        self.external_await_names = external_await_names
+        self.external_type_changing = external_type_changing
 
-    def await_list_check(self):
-        if(self.childs[1].is_await()):
-            return [self.childs[0].name]
+        return f"{self.childs[0].name} = {self.childs[1].to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names)}"
+
+    def await_names_check(self):
+        if self.childs[1].is_await():
+            return [self.childs[0].name], [self.childs[0].name]
         else:
-            return []
+            return [], []
 
     @property
     def childs(self) -> Tuple[IdentNode, ExprNode]:
         return self.var, self.val
-
-    def semantic_check(self, scope: IdentScope) -> None:
-        self.var.semantic_check(scope)
-        self.val.semantic_check(scope)
-        self.val = type_convert(self.val, self.var.node_type, self, 'присваиваемое значение')
-        self.node_type = self.var.node_type
 
 
 class VarsNode(StmtNode):
@@ -476,53 +339,44 @@ class VarsNode(StmtNode):
     def __str__(self) -> str:
         return str(self.type)
 
-    def _one_of(self, args):
-        for child in self.childs:
-            if child.__class__.__name__ == AssignNode.__name__:
-                if child.childs[1].__class__.__name__ == CallerNode.__name__ and child.childs[1].is_await():
-                    return True
-            elif child.__class__.__name__ == VarsNode.__name__:
-                for as_child in child.childs:
-                   if as_child.name in args:
-                       return True
-            elif child.name in args:
-                return True
-        return False
+    def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing) -> str:
+        self.await_names = await_names
+        self.type_changing = type_changing
+        self.is_async = is_async
+        self.external_await_names = external_await_names
+        self.external_type_changing = external_type_changing
+
+        is_valuable = False
+        for x in self.childs:
+            if isinstance(x, AssignNode):
+                is_valuable = True if x.var.name in self.type_changing else False
+            else:
+                is_valuable = True if x.name in self.type_changing else False
+
+        body = ", ".join(
+            x.to_jpp_code(self.await_names, self.type_changing, self.is_async,
+                          self.external_await_names) if isinstance(x,
+                                                                   AssignNode) else x.name
+            for x in
+            self.childs)
+
+        type_name = TYPES.get(self.type.name) if self.type.name in TYPES else self.type.name
+        type_ = f"Valuable<{type_name}>" if is_valuable else f"{self.type.name}"
+        return f"{type_} {body}"
 
 
-    def to_jpp_code(self, *args) -> str:
-        if args and self._one_of(args[0]):
-
-            body = ", ".join(x.to_jpp_code(args[0]) if isinstance(x, AssignNode) else x.name for x in self.childs)
-
-            return f"Valuable<{self.type.name}> {body}"
-        else:
-            body = ", ".join(x.to_jpp_code() for x in self.childs)
-        return f"{self.type.name} {body}"
-
-    def await_list_check(self):
-        result = []
+    def await_names_check(self):
+        result, type_change = [], []
         for i in self.childs:
-            if i.__class__.__name__ == AssignNode.__name__:
-                result.extend(i.await_list_check())
-        return result
-
-
+            if isinstance(i, AssignNode):
+                tmp_result, tmp_type_change = i.await_names_check()
+                result.extend(tmp_result)
+                type_change.extend(tmp_type_change)
+        return result, type_change
 
     @property
     def childs(self) -> Tuple[AstNode, ...]:
         return self.vars
-
-    def semantic_check(self, scope: IdentScope) -> None:
-        self.type.semantic_check(scope)
-        for var in self.vars:
-            var_node: IdentNode = var.var if isinstance(var, AssignNode) else var
-            try:
-                scope.add_ident(IdentDesc(var_node.name, self.type.type))
-            except SemanticException as e:
-                var_node.semantic_error(e.message)
-            var.semantic_check(scope)
-        self.node_type = TypeDesc.VOID
 
 
 class ReturnNode(StmtNode):
@@ -537,22 +391,28 @@ class ReturnNode(StmtNode):
     def __str__(self) -> str:
         return 'return'
 
-    def to_jpp_code(self, *args):
-        if args:
-            return f"return {self.val.to_jpp_code(args[0])}"
-        return f"return {self.val.to_jpp_code()}"
+    def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing):
+        self.await_names = await_names
+        self.type_changing = type_changing
+        self.is_async = is_async
+        self.external_await_names = external_await_names
+        self.external_type_changing = external_type_changing
+
+
+        if is_async:
+            if self.val.name in self.await_names:
+                return f"return {self.val.to_jpp_code([], type_changing)}"
+            return f"return new Promise({self.val.to_jpp_code(await_names, type_changing)})"
+        return f"return {self.val.to_jpp_code(await_names, type_changing)}"
 
     @property
     def childs(self) -> Tuple[ExprNode]:
         return (self.val,)
 
-    def semantic_check(self, scope: IdentScope) -> None:
-        self.val.semantic_check(IdentScope(scope))
-        func = scope.curr_func
-        if func is None:
-            self.semantic_error('Оператор return применим только к функции')
-        self.val = type_convert(self.val, func.func.type.return_type, self, 'возвращаемое значение')
-        self.node_type = TypeDesc.VOID
+    def await_names_check(self, await_names, type_changing, is_async, external_await_names, external_types):
+        if args and await_names:
+            return [], [self.val.to_jpp_code()]
+        return [], []
 
 
 class IfNode(StmtNode):
@@ -566,29 +426,44 @@ class IfNode(StmtNode):
         self.then_stmt = then_stmt
         self.else_stmt = else_stmt
 
+        self.await_names = []
+        self.type_changing = []
+        self.is_async = []
+        self.external_await_names = []
+        self.await_names = []
+
     def __str__(self) -> str:
         return 'if'
 
-    def to_jpp_code(self, *args):
-        if args:
-            then = '   ' + '\n   '.join(self.then_stmt.to_jpp_code(args[0]).split('\n'))
-            else_ = '   ' + '\n   '.join(self.else_stmt.to_jpp_code(args[0]).split('\n'))
-            return f"if ({self.cond.to_jpp_code(args[0])}){{\n{then}\n}}\nelse{{\n{else_}\n}}"
-        then = '   ' + '\n   '.join(self.then_stmt.to_jpp_code().split('\n'))
-        else_ = '   ' + '\n   '.join(self.else_stmt.to_jpp_code().split('\n'))
-        return f"if ({self.cond.to_jpp_code()}){{\n{then}\n}}\nelse{{\n{else_}\n}}"
+    def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing):
+        self.await_names = await_names
+        self.type_changing = type_changing
+        self.is_async = is_async
+        self.external_await_names = external_await_names
+        self.external_type_changing = external_type_changing
+        then = '   ' + '\n   '.join(
+            self.then_stmt.to_jpp_code(self.await_names, self.type_changing, self.is_async,
+                                       self.external_await_names, self.external_type_changing).split('\n'))
+        cond = self.cond.to_jpp_code(self.await_names, self.type_changing, self.is_async,
+                                       self.external_await_names, self.external_type_changing)
+        if self.else_stmt is not None:
+            else_ = '   ' + '\n   '.join(
+                self.else_stmt.to_jpp_code(self.await_names, self.type_changing, self.is_async,
+                                           self.external_await_names, self.external_type_changing).split('\n'))
+            return f"if ({cond}){{\n{then}\n}}\nelse{{\n{else_}\n}}"
+        return f"if ({cond}){{\n{then}\n}}"
+
+    def await_names_check(self, await_names, type_changing, is_async, external_await_names, external_types):
+        result, type_change = [], []
+        for x in self.childs:
+            tmp_result, tmp_type_change = x.await_names_check()
+            result.extend(tmp_result)
+            type_change.extend(tmp_type_change)
+        return result, type_change
 
     @property
     def childs(self) -> Tuple[ExprNode, StmtNode, Optional[StmtNode]]:
         return (self.cond, self.then_stmt, *((self.else_stmt,) if self.else_stmt else tuple()))
-
-    def semantic_check(self, scope: IdentScope) -> None:
-        self.cond.semantic_check(scope)
-        self.cond = type_convert(self.cond, TypeDesc.BOOL, None, 'условие')
-        self.then_stmt.semantic_check(IdentScope(scope))
-        if self.else_stmt:
-            self.else_stmt.semantic_check(IdentScope(scope))
-        self.node_type = TypeDesc.VOID
 
 
 class ForNode(StmtNode):
@@ -611,23 +486,26 @@ class ForNode(StmtNode):
     def childs(self) -> Tuple[AstNode, ...]:
         return self.init, self.cond, self.step, self.body
 
-    def semantic_check(self, scope: IdentScope) -> None:
-        scope = IdentScope(scope)
-        self.init.semantic_check(scope)
-        if self.cond == EMPTY_STMT:
-            self.cond = LiteralNode('true')
-        self.cond.semantic_check(scope)
-        self.cond = type_convert(self.cond, TypeDesc.BOOL, None, 'условие')
-        self.step.semantic_check(scope)
-        self.body.semantic_check(IdentScope(scope))
-        self.node_type = TypeDesc.VOID
+    def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing):
+        self.await_names = await_names
+        self.type_changing = type_changing
+        self.is_async = is_async
+        self.external_await_names = external_await_names
+        self.external_type_changing = external_type_changing
 
-    def to_jpp_code(self, *args):
-        if args:
-            body = '   ' + '\n   '.join(self.body.to_jpp_code(args[0]).split('\n'))
-            return f"for ({self.init.to_jpp_code(args[0])};{self.cond.to_jpp_code(args[0])};{self.step.to_jpp_code(args[0])}){{\n{body}\n}}"
-        body = '   ' + '\n   '.join(self.body.to_jpp_code().split('\n'))
-        return f"for ({self.init.to_jpp_code()};{self.cond.to_jpp_code()};{self.step.to_jpp_code()}){{\n{body}\n}}"
+        body = '   ' + '\n   '.join(
+            self.body.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing).split('\n'))
+        return f"for ({self.init.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)};" \
+               f"{self.cond.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)};" \
+               f"{self.step.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)}){{\n{body}\n}}"
+
+    # def await_names_check(self, await_names, type_changing, is_async, external_await_names, external_types):
+    #     result, type_change = [], []
+    #     for x in self.childs:
+    #         tmp_result, tmp_type_change = x.await_names_check()
+    #         result.extend(tmp_result)
+    #         type_change.extend(tmp_type_change)
+    #     return result, type_change
 
 
 class ParamNode(StmtNode):
@@ -646,15 +524,6 @@ class ParamNode(StmtNode):
     @property
     def childs(self) -> Tuple[IdentNode]:
         return self.name,
-
-    def semantic_check(self, scope: IdentScope) -> None:
-        self.type.semantic_check(scope)
-        self.name.node_type = self.type.type
-        try:
-            self.name.node_ident = scope.add_ident(IdentDesc(self.name.name, self.type.type, ScopeType.PARAM))
-        except SemanticException:
-            raise self.name.semantic_error('Параметр {} уже объявлен'.format(self.name.name))
-        self.node_type = TypeDesc.VOID
 
 
 class FuncNode(StmtNode):
@@ -676,24 +545,24 @@ class FuncNode(StmtNode):
     def __str__(self) -> str:
         return 'function'
 
-    def to_jpp_code(self, *args) -> str:
+    def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing) -> str:
         if self.async_ == "async":
             params = ', '.join(f"Valuable<{i.type.name}> {i.name.name}" for i in self.params)
             if args:
-                return f"{self.access} Valuable<{self.type}> {self.name} ({params}) {{\n{self.body.to_jpp_code(args[0])} \n}}\n"
-            return f"{self.access} Valuable<{self.type}> {self.name} ({params}) {{\n{self.body.to_jpp_code()} \n}}\n"
-        else:
-            params = ', '.join(f"{i.type.name} {i.name.name}" for i in self.params)
-            if args:
-                return f"{self.access} {self.type} {self.name} ({params}) {{\n{self.body.to_jpp_code(args[0])}\n}}\n"
-            return f"{self.access} {self.type} {self.name} ({params}) {{\n{self.body.to_jpp_code()}\n}}\n"
+                self.external_await_names = await_names
+                self.external_type_changing = type_changing
+                return f"{self.access} {self.static} Valuable<{self.type}> {self.name} ({params}) {{\n{self.body.to_jpp_code(self.await_names, self.type_changing, True, self.external_await_names, self.external_type_changing)} \n}}\n "
+            return f"{self.access} {self.static} Valuable<{self.type}> {self.name} ({params}) {{\n{self.body.to_jpp_code(self.await_names, self.type_changing, True, self.external_await_names, self.external_type_changing)} \n}}\n "
 
-    def await_list_check(self):
-        result = []
+        params = ', '.join(f"{i.type.name} {i.name.name}" for i in self.params)
+        return f"{self.access} {self.static} {self.type} {self.name} ({params}) {{\n{self.body.to_jpp_code(self.await_names, self.type_changing, False)}\n}}\n"
+
+    def await_names_check(self):
         if self.async_ == "async":
-            result.extend([x.name.name for x in self.params])
-        result.extend(self.body.await_list_check())
-        return result
+            self.await_names.extend([x.name.name for x in self.params])
+        tmp_result, temp_type_change = self.body.await_names_check()
+        self.await_names.extend(tmp_result)
+        self.type_changing.extend(temp_type_change)
 
     @property
     def childs(self) -> Tuple[AstNode, ...]:
@@ -703,33 +572,6 @@ class FuncNode(StmtNode):
                                                 _GroupNode(str(self.type),
                                                            self.name),
                                                 ))), _GroupNode('params', *self.params), self.body
-
-    def semantic_check(self, scope: IdentScope) -> None:
-        if scope.curr_func:
-            self.semantic_error(
-                "Объявление функции ({}) внутри другой функции не поддерживается".format(self.name.name))
-        parent_scope = scope
-        self.type.semantic_check(scope)
-        scope = IdentScope(scope)
-
-        # временно хоть какое-то значение, чтобы при добавлении параметров находить scope функции
-        scope.func = EMPTY_IDENT
-        params = []
-        for param in self.params:
-            # при проверке параметров происходит их добавление в scope
-            param.semantic_check(scope)
-            params.append(param.type.type)
-
-        type_ = TypeDesc(None, self.type.type, tuple(params))
-        func_ident = IdentDesc(self.name.name, type_)
-        scope.func = func_ident
-        self.name.node_type = type_
-        try:
-            self.name.node_ident = parent_scope.curr_global.add_ident(func_ident)
-        except SemanticException as e:
-            self.name.semantic_error("Повторное объявление функции {}".format(self.name.name))
-        self.body.semantic_check(scope)
-        self.node_type = TypeDesc.VOID
 
 
 class StmtListNode(StmtNode):
@@ -741,7 +583,6 @@ class StmtListNode(StmtNode):
         super().__init__(row=row, col=col, **props)
         self.exprs = exprs
         self.program = False
-        self.await_list = []
 
     def __str__(self) -> str:
         return '...'
@@ -750,25 +591,33 @@ class StmtListNode(StmtNode):
     def childs(self) -> Tuple[StmtNode, ...]:
         return self.exprs
 
-
-    def semantic_check(self, scope: IdentScope) -> None:
-        if not self.program:
-            scope = IdentScope(scope)
-        for expr in self.exprs:
-            expr.semantic_check(scope)
-        self.node_type = TypeDesc.VOID
-
-    def await_list_check(self):
+    def await_names_check(self):
         result = []
+        type_change = []
         for x in self.childs:
-            result.extend(x.await_list_check())
-        self.await_list = result
+            if isinstance(x, FuncNode):
+                x.await_names_check()
+            else:
+                tmp_result, tmp_type_change = x.await_names_check()
+                result.extend(tmp_result)
+                type_change.extend(tmp_type_change)
+        return result, type_change
 
-    def to_jpp_code(self, *args):
-        self.await_list_check()
-        if args:
-            self.await_list.extend(args[0])
-        return "\n".join(x.to_jpp_code(self.await_list) for x in self.childs)
+    def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing):
+        self.await_names = await_names
+        self.type_changing = type_changing
+        self.is_async = is_async
+        self.external_await_names = external_await_names
+        self.external_type_changing = external_type_changing
+        result = "\n".join(x.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names,
+                                         self.external_type_changing)
+                           if isinstance(x, FuncNode)
+                           else (
+                x.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names,
+                              self.external_type_changing) + ";")
+                           for x in self.childs)
+        return result
+
 
 class FuncStmtListNode(StmtNode):
     """Класс для представления в AST-дереве последовательности инструкций
@@ -783,30 +632,31 @@ class FuncStmtListNode(StmtNode):
     def __str__(self) -> str:
         return '...'
 
-    def to_jpp_code(self, *args) -> str:
-        if args:
-            body = '   ' + ';\n   '.join(f"{x.to_jpp_code(args[0])}" for x in self.exprs) + ";"
-        else:
-            body = '   ' + ';\n   '.join(f"{x.to_jpp_code()}" for x in self.exprs) + ";"
+    def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing) -> str:
+        self.await_names = await_names
+        self.type_changing = type_changing
+        self.is_async = is_async
+        self.external_await_names = external_await_names
+        self.external_type_changing = external_type_changing
+
+        body = '\n   '.join(
+            f"{x.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)}" if isinstance(
+                x, IfNode) or isinstance(x,
+                                         ForNode) else f"{x.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)};"
+            for x in self.exprs)
         return body
 
-    def await_list_check(self):
-        result = []
+    def await_names_check(self, await_names, type_changing, is_async, external_await_names, external_types):
+        result, type_change = [], []
         for x in self.exprs:
-            result.extend(x.await_list_check())
-        return result
+            tmp_result, tmp_type_change = x.await_names_check()
+            result.extend(tmp_result)
+            type_change.extend(tmp_type_change)
+        return result, type_change
 
     @property
     def childs(self) -> Tuple[StmtNode, ...]:
         return self.exprs
-
-
-    def semantic_check(self, scope: IdentScope) -> None:
-        if not self.program:
-            scope = IdentScope(scope)
-        for expr in self.exprs:
-            expr.semantic_check(scope)
-        self.node_type = TypeDesc.VOID
 
 
 EMPTY_STMT = StmtListNode()
@@ -827,32 +677,18 @@ class ClassInitNode(StmtNode):
     def __str__(self) -> str:
         return 'class'
 
-    def to_jpp_code(self, *args):
-        if args:
-            lines = self.body.to_jpp_code(args[0]).split('\n')
-
-        else:
-            lines = self.body.to_jpp_code().split('\n')
+    def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing):
+        self.external_await_names = await_names
+        self.external_type_changing = type_changing
+        self.await_names, self.type_changing = self.body.await_names_check()
+        lines = self.body.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names,
+                                      self.external_type_changing).split('\n')
         body = '   ' + '\n   '.join(line for line in lines)
         return f"{self.access} class {self.name} {{\n{body}}}"
 
     @property
     def childs(self) -> Tuple[AstNode, ...]:
         return _GroupNode(str(self.access), self.name), self.body
-
-    def semantic_check(self, scope: IdentScope) -> None:
-        if scope.curr_func:
-            self.semantic_error(
-                "Объявление функции ({}) внутри другой функции не поддерживается".format(self.name.name))
-        parent_scope = scope
-        self.type.semantic_check(scope)
-        scope = IdentScope(scope)
-
-        # временно хоть какое-то значение, чтобы при добавлении параметров находить scope функции
-        scope.func = EMPTY_IDENT
-
-        self.body.semantic_check(scope)
-        self.node_type = TypeDesc.VOID
 
 
 empty_statement_list = StmtListNode()
