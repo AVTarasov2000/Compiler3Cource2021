@@ -3,7 +3,8 @@ from compiler_demo import program
 
 if __name__ == "__main__":
     path = sys.argv[1]
-    print(path)
+    res = ""
     with open(path, "r") as inp:
-        # print(inp.read())
-        program.execute(inp.read())
+        res += inp.readline()
+        res += inp.readline()
+        res += program.execute(inp.read())
