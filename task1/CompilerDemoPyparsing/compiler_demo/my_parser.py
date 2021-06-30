@@ -53,7 +53,7 @@ def make_parser():
     literal = num | str_ | pp.Regex('true|false')
 
     ident = (~keywords + ppc.identifier.copy()).setName('ident')
-    type_ = ident.copy().setName('type')
+    type_ = ident.copy().setName('type')+pp.Optional(LBRACK+RBRACK)
     access = ident.copy().setName('access')
 
     add = pp.Forward()
