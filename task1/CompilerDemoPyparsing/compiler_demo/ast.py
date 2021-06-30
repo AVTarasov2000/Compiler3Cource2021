@@ -212,11 +212,11 @@ class CallNode(ExprNode):
         return 'call'
 
     def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing) -> str:
-        self.await_names = await_names
-        self.type_changing = type_changing
+        self.await_names.extend(await_names)
+        self.type_changing.extend(type_changing)
         self.is_async = is_async
-        self.external_await_names = external_await_names
-        self.external_type_changing = external_type_changing
+        self.external_await_names.extend(external_await_names)
+        self.external_type_changing.extend(external_type_changing)
 
         params = ", ".join(x.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names,
                                          self.external_type_changing) for x in self.childs[1].childs)
@@ -245,11 +245,11 @@ class CallerNode(ExprNode):
         return 'caller'
 
     def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing) -> str:
-        self.await_names = await_names
-        self.type_changing = type_changing
+        self.await_names.extend(await_names)
+        self.type_changing.extend(type_changing)
         self.is_async = is_async
-        self.external_await_names = external_await_names
-        self.external_type_changing = external_type_changing
+        self.external_await_names.extend(external_await_names)
+        self.external_type_changing.extend(external_type_changing)
         if isinstance(self.expr, CallNode) and self.call == 'await':
             line = [x.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing) for x in self.expr.params]
             params = ", ".join(f"{x}.value" if x in await_names else f"{x}" for x in line)
@@ -327,11 +327,11 @@ class AssignNode(ExprNode):
         return '='
 
     def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing) -> str:
-        self.await_names = await_names
-        self.type_changing = type_changing
+        self.await_names.extend(await_names)
+        self.type_changing.extend(type_changing)
         self.is_async = is_async
-        self.external_await_names = external_await_names
-        self.external_type_changing = external_type_changing
+        self.external_await_names.extend(external_await_names)
+        self.external_type_changing.extend(external_type_changing)
 
         return f"{self.childs[0].name} = {self.childs[1].to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)}"
 
@@ -360,11 +360,11 @@ class VarsNode(StmtNode):
         return str(self.type)
 
     def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing) -> str:
-        self.await_names = await_names
-        self.type_changing = type_changing
+        self.await_names.extend(await_names)
+        self.type_changing.extend(type_changing)
         self.is_async = is_async
-        self.external_await_names = external_await_names
-        self.external_type_changing = external_type_changing
+        self.external_await_names.extend(external_await_names)
+        self.external_type_changing.extend(external_type_changing)
 
         is_valuable = False
         for x in self.childs:
@@ -411,11 +411,11 @@ class NewNode(StmtNode):
         return 'new '
 
     def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing) -> str:
-        self.await_names = await_names
-        self.type_changing = type_changing
+        self.await_names.extend(await_names)
+        self.type_changing.extend(type_changing)
         self.is_async = is_async
-        self.external_await_names = external_await_names
-        self.external_type_changing = external_type_changing
+        self.external_await_names.extend(external_await_names)
+        self.external_type_changing.extend(external_type_changing)
         return f" new {self.val.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)}"
 
     def await_names_check(self):
@@ -439,11 +439,11 @@ class ReturnNode(StmtNode):
         return 'return'
 
     def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing):
-        self.await_names = await_names
-        self.type_changing = type_changing
+        self.await_names.extend(await_names)
+        self.type_changing.extend(type_changing)
         self.is_async = is_async
-        self.external_await_names = external_await_names
-        self.external_type_changing = external_type_changing
+        self.external_await_names.extend(external_await_names)
+        self.external_type_changing.extend(external_type_changing)
 
         if is_async:
             if self.val.name in self.await_names:
@@ -482,11 +482,11 @@ class IfNode(StmtNode):
         return 'if'
 
     def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing):
-        self.await_names = await_names
-        self.type_changing = type_changing
+        self.await_names.extend(await_names)
+        self.type_changing.extend(type_changing)
         self.is_async = is_async
-        self.external_await_names = external_await_names
-        self.external_type_changing = external_type_changing
+        self.external_await_names.extend(external_await_names)
+        self.external_type_changing.extend(external_type_changing)
         then = '   ' + '\n   '.join(
             self.then_stmt.to_jpp_code(self.await_names, self.type_changing, self.is_async,
                                        self.external_await_names, self.external_type_changing).split('\n'))
@@ -533,17 +533,17 @@ class ForNode(StmtNode):
         return self.init, self.cond, self.step, self.body
 
     def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing):
-        self.await_names = await_names
-        self.type_changing = type_changing
+        self.await_names.extend(await_names)
+        self.type_changing.extend(type_changing)
         self.is_async = is_async
-        self.external_await_names = external_await_names
-        self.external_type_changing = external_type_changing
+        self.external_await_names.extend(external_await_names)
+        self.external_type_changing.extend(external_type_changing)
 
         body = '   ' + '\n   '.join(
             self.body.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names,
                                   self.external_type_changing).split('\n'))
-        return f"for ({self.init.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)};" \
-               f"{self.cond.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)};" \
+        return f"for ({self.init.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)} ; " \
+               f"{self.cond.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)} ; " \
                f"{self.step.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)}){{\n{body}\n}}"
 
     def await_names_check(self):
@@ -572,11 +572,11 @@ class TryNode(StmtNode):
         return [self.body]
 
     def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing):
-        self.await_names = await_names
-        self.type_changing = type_changing
+        self.await_names.extend(await_names)
+        self.type_changing.extend(type_changing)
         self.is_async = is_async
-        self.external_await_names = external_await_names
-        self.external_type_changing = external_type_changing
+        self.external_await_names.extend(external_await_names)
+        self.external_type_changing.extend(external_type_changing)
 
         body = '   ' + '\n   '.join(
             self.body.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names,
@@ -610,11 +610,11 @@ class CatchNode(StmtNode):
         return self.var, self.body
 
     def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing):
-        self.await_names = await_names
-        self.type_changing = type_changing
+        self.await_names.extend(await_names)
+        self.type_changing.extend(type_changing)
         self.is_async = is_async
-        self.external_await_names = external_await_names
-        self.external_type_changing = external_type_changing
+        self.external_await_names.extend(external_await_names)
+        self.external_type_changing.extend(external_type_changing)
         body = '   ' + '\n   '.join(
             self.body.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names,
                                   self.external_type_changing).split('\n'))
@@ -725,11 +725,11 @@ class StmtListNode(StmtNode):
         return result, type_change
 
     def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing):
-        self.await_names = await_names
-        self.type_changing = type_changing
+        self.await_names.extend(await_names)
+        self.type_changing.extend(type_changing)
         self.is_async = is_async
-        self.external_await_names = external_await_names
-        self.external_type_changing = external_type_changing
+        self.external_await_names.extend(external_await_names)
+        self.external_type_changing.extend(external_type_changing)
         result = "\n".join(x.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names,
                                          self.external_type_changing)
                            if isinstance(x, FuncNode)
@@ -754,16 +754,18 @@ class FuncStmtListNode(StmtNode):
         return '...'
 
     def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing) -> str:
-        self.await_names = await_names
-        self.type_changing = type_changing
+        self.await_names.extend(await_names)
+        self.type_changing.extend(type_changing)
         self.is_async = is_async
-        self.external_await_names = external_await_names
-        self.external_type_changing = external_type_changing
+        self.external_await_names.extend(external_await_names)
+        self.external_type_changing.extend(external_type_changing)
 
         body = '\n   '.join(
             f"{x.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)}" if isinstance(
                 x, IfNode) or isinstance(x,
-                                         ForNode) else f"{x.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)};"
+                                         ForNode) or isinstance(x,
+                                         TryNode) or isinstance(x,
+                                         CatchNode) else f"{x.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)};"
             for x in self.exprs)
         return body
 
