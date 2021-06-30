@@ -410,8 +410,13 @@ class NewNode(StmtNode):
     def __str__(self) -> str:
         return 'new '
 
-    def to_jpp_code(self):
-        return f" new {self.val.to_jpp_code()}"
+    def to_jpp_code(self, await_names, type_changing, is_async, external_await_names, external_type_changing) -> str:
+        self.await_names = await_names
+        self.type_changing = type_changing
+        self.is_async = is_async
+        self.external_await_names = external_await_names
+        self.external_type_changing = external_type_changing
+        return f" new {self.val.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)}"
 
     def await_names_check(self):
         return [], []
@@ -613,7 +618,7 @@ class CatchNode(StmtNode):
         body = '   ' + '\n   '.join(
             self.body.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names,
                                   self.external_type_changing).split('\n'))
-        return f"catch ({self.var.to_jpp_code()}){{\n{body}\n}}"
+        return f"catch ({self.var.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)}){{\n{body}\n}}"
 
     def await_names_check(self):
         result, type_change = [], []
