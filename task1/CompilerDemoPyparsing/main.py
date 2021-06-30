@@ -110,7 +110,7 @@ def main() -> None:
     async public static Integer Factorial()
     {
         int result = 1;
-        for(int i = 1; i <= 9; i = i + 1)
+        for(int i = 1; i <= 9; i += 1)
         {
             result = result * i;
         }
