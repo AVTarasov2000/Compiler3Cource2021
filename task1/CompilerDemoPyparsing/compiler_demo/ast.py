@@ -192,7 +192,10 @@ class BinOpNode(ExprNode):
         self.is_async = is_async
         self.external_await_names.extend(external_await_names)
         self.external_type_changing.extend(external_type_changing)
-        return f"{self.arg1.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)}{self.op.value}{self.arg2.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)}"
+        if self.op.value == '.':
+            return f"{self.arg1.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)}{self.op.value}{self.arg2.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)}"
+        else:
+            return f"{self.arg1.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)} {self.op.value} {self.arg2.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)}"
 
     def await_names_check(self):
         return [], []
@@ -454,9 +457,6 @@ class ReturnNode(StmtNode):
         self.is_async = is_async
         self.external_await_names.extend(external_await_names)
         self.external_type_changing.extend(external_type_changing)
-
-        if is_async:
-            return f"return {self.val.name}"
         return f"return {self.val.to_jpp_code(self.await_names, self.type_changing, self.is_async, self.external_await_names, self.external_type_changing)}"
 
     @property
